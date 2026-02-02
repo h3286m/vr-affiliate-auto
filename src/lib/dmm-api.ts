@@ -17,22 +17,22 @@ function getBaseParams() {
 }
 
 export async function fetchActressItems(actressId: string, hits: number = 100): Promise<DmmItem[]> {
-    const params = new URLSearchParams({
-        ...getBaseParams(),
-        site: 'FANZA',
-        service: 'digital',
-        floor: 'videoa',
-        hits: '50', // Fetch more to allow for filtering
-        sort: 'rank', // Priority: Popularity
-        keyword: 'VR', // Restrict to VR works
-        article: 'actress',
-        article_id: actressId,
-    });
-
-    const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
-    console.log(`Fetching Items: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
-
     try {
+        const params = new URLSearchParams({
+            ...getBaseParams(),
+            site: 'FANZA',
+            service: 'digital',
+            floor: 'videoa',
+            hits: '50',
+            sort: 'rank',
+            keyword: 'VR',
+            article: 'actress',
+            article_id: actressId,
+        });
+
+        const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
+        console.log(`Fetching Items: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
+
         const response = await fetch(url);
         if (!response.ok) {
             const errorText = await response.text();
@@ -41,11 +41,7 @@ export async function fetchActressItems(actressId: string, hits: number = 100): 
 
         const data: DmmItemListResponse = await response.json();
         const items = data.result?.items || [];
-
-        // Filter items that have sample videos
         const validItems = items.filter(item => item.sampleMovieURL);
-
-        // Return Top 10 (Already sorted by rank/popularity from API)
         return validItems.slice(0, 10);
     } catch (error) {
         console.error("Error fetching items from DMM API:", error);
@@ -54,18 +50,17 @@ export async function fetchActressItems(actressId: string, hits: number = 100): 
 }
 
 export async function fetchActresses(initial: string, hits: number = 20, offset: number = 1): Promise<DmmActress[]> {
-    const params = new URLSearchParams({
-        ...getBaseParams(),
-        initial: initial, // e.g., 'あ'
-        hits: hits.toString(),
-        offset: offset.toString(),
-        // sort: 'name_rank', // defaulting to API default
-    });
-
-    const url = `${DMM_API_BASE_ACTRESS}?${params.toString()}`;
-    console.log(`Fetching Actresses: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
-
     try {
+        const params = new URLSearchParams({
+            ...getBaseParams(),
+            initial: initial,
+            hits: hits.toString(),
+            offset: offset.toString(),
+        });
+
+        const url = `${DMM_API_BASE_ACTRESS}?${params.toString()}`;
+        console.log(`Fetching Actresses: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
+
         const response = await fetch(url);
         if (!response.ok) {
             const errorText = await response.text();
@@ -74,24 +69,22 @@ export async function fetchActresses(initial: string, hits: number = 20, offset:
 
         const data: DmmActressSearchResponse = await response.json();
         const actresses = data.result?.actress || [];
-        // Filter out actresses without images
         return actresses.filter(a => a.imageURL?.large || a.imageURL?.small);
     } catch (error) {
         console.error("Error fetching actresses from DMM API:", error);
-        // Rethrow to stop build if critical
         throw error;
     }
 }
 
 export async function fetchActressProfile(id: string): Promise<DmmActress | null> {
-    const params = new URLSearchParams({
-        ...getBaseParams(),
-        actress_id: id,
-    });
-
-    const url = `${DMM_API_BASE_ACTRESS}?${params.toString()}`;
-
     try {
+        const params = new URLSearchParams({
+            ...getBaseParams(),
+            actress_id: id,
+        });
+
+        const url = `${DMM_API_BASE_ACTRESS}?${params.toString()}`;
+
         const response = await fetch(url);
         if (!response.ok) return null;
 
