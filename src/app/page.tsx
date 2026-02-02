@@ -7,14 +7,33 @@ export default async function Home() {
 
   // Filter actresses to only include those with at least 1 VR video
   // Note: This increases build time but ensures high quality list.
-  const checks = await Promise.all(
-    actresses.map(async (actress) => {
-      // Fetch just 1 item to check existence (limit 1 for speed)
-      // fetchActressItems already applies 'VR' keyword, 'sample' filter, and 'rank' sort.
-      const items = await fetchActressItems(actress.id.toString(), 1);
-      return { ...actress, hasVideos: items.length > 0 };
-    })
-  );
+  // Filter actresses to only include those with at least 1 VR video
+  // Note: This increases build time but ensures high quality list.
+  // We throttled requests to avoid API rate limits (200+ requests at once will fail).
+  const BATCH_SIZE = 5;
+  const DELAY_MS = 100;
+  const checks = [];
+
+  for (let i = 0; i < actresses.length; i += BATCH_SIZE) {
+    const batch = actresses.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (actress) => {
+        // Fetch just 1 item to check existence
+        try {
+          const items = await fetchActressItems(actress.id.toString(), 1);
+          return { ...actress, hasVideos: items.length > 0 };
+        } catch (e) {
+          console.error(`Check failed for ${actress.name}`, e);
+          return { ...actress, hasVideos: false };
+        }
+      })
+    );
+    checks.push(...batchResults);
+    // Slight delay between batches
+    if (i + BATCH_SIZE < actresses.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
 
   const filteredActresses = checks.filter(a => a.hasVideos);
 
