@@ -96,14 +96,49 @@ export async function fetchActressProfile(id: string): Promise<DmmActress | null
     }
 }
 
+const DELAY_MS = 100;
+
+async function delay(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function fetchAllActressesByInitial(initial: string): Promise<DmmActress[]> {
-    // Limited implementation for now - modification to fetch ALL (pagination) would go here
-    // For 'Logic 1' equivalence, we would iterate offsets.
+    let allActresses: DmmActress[] = [];
+    let offset = 1;
+    let hasMore = true;
+    const MAX_FETCH_COUNT = 1000; // Safety limit to prevent infinite loops
+
     try {
-        return await fetchActresses(initial, 100);
+        console.log(`Starting fetch for initial: ${initial}`);
+        while (hasMore && allActresses.length < MAX_FETCH_COUNT) {
+            // Fetch 100 items at a time
+            const actresses = await fetchActresses(initial, 100, offset);
+
+            if (actresses.length === 0) {
+                hasMore = false;
+            } else {
+                allActresses = [...allActresses, ...actresses];
+                console.log(`Fetched ${actresses.length} actresses (Total: ${allActresses.length})`);
+
+                // If we got fewer than requested (100), we've reached the end
+                // Note: The filter inside fetchActresses might reduce the count, 
+                // so we should rely on the raw response size if possible, 
+                // but checking if we got *any* results is a safe basic check.
+                // A more robust check might require checking result_count from response, 
+                // but for now, let's increment offset by 100.
+                offset += 100;
+
+                // Be polite to the API
+                await delay(DELAY_MS);
+            }
+        }
+
+        console.log(`Finished fetching. Total actresses for '${initial}': ${allActresses.length}`);
+        return allActresses;
+
     } catch (error) {
         console.error(`Failed to fetch actresses for initial '${initial}'. Using fallback data for build. Error:`, error);
-        // Fallback data must be empty to avoid 404 errors during build if API is down
-        return [];
+        // Return whatever we managed to fetch so far, or empty
+        return allActresses;
     }
 }
