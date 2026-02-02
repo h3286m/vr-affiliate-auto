@@ -20,7 +20,7 @@ export interface DmmItem {
     URL: string;
     affiliateURL: string; // Used for direct affiliate link
     imageURL?: DmmImageURL;
-    sampleMovieURL?: { [key: string]: string }; // Indicates presence of sample video
+    sampleMovieURL?: { [key: string]: string | number }; // Indicates presence of sample video
     date: string; // Release date
     iteminfo?: DmmItemInfo;
     [key: string]: any;
@@ -43,18 +43,18 @@ export interface DmmActressImageURL {
 }
 
 export interface DmmActress {
-    id: number;
+    id: number | string;
     name: string;
     ruby: string;
-    bust?: number;
-    cup?: string;
-    waist?: number;
-    hip?: number;
-    height?: number;
-    birthday?: string;
-    blood_type?: string;
-    hobby?: string;
-    prefectures?: string;
+    bust?: number | string | null;
+    cup?: string | null;
+    waist?: number | string | null;
+    hip?: number | string | null;
+    height?: number | string | null;
+    birthday?: string | null;
+    blood_type?: string | null;
+    hobby?: string | null;
+    prefectures?: string | null;
     imageURL?: DmmActressImageURL;
     listURL?: DmmImageURL; // Sometimes structure varies
 }

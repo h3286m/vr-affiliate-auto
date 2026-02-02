@@ -32,13 +32,23 @@ async function main() {
             const batch = actresses.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(async (actress) => {
                 try {
-                    // We only need to know if count > 0, so limit=1 is fine
-                    const items = await fetchActressItems(actress.id.toString(), 1);
+                    // Fetch up to 20 items to filter down to 10 valid ones
+                    // We need enough videos to populate the detail page
+                    const items = await fetchActressItems(actress.id.toString(), 20);
+
                     if (items.length > 0) {
-                        process.stdout.write('O'); // Found
-                        return actress;
+                        process.stdout.write('O'); // Found videos
+                        // Return the actress object EXTENDED with the videos
+                        // We don't strictly need a separate profile fetch if the list data is enough,
+                        // but page.tsx used it. The list object usually contains the name correctly.
+                        // We'll trust the list object for now to save time/requests, 
+                        // as DmmActress entries from search have names.
+                        return {
+                            ...actress,
+                            videos: items // Attach videos here
+                        };
                     } else {
-                        process.stdout.write('.'); // Not found
+                        process.stdout.write('.'); // No videos
                         return null;
                     }
                 } catch (e) {

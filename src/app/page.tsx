@@ -1,11 +1,11 @@
 import Link from 'next/link';
 // import { fetchAllActressesByInitial, fetchActressItems } from '@/lib/dmm-api'; // Old API approach
 import actressesData from '@/data/actresses.json';
-import { DmmActress } from '@/types/dmm';
+import { DmmActress, DmmItem } from '@/types/dmm';
 
 // Define the interface for the extended actress object matches the JSON
 interface ActressWithVideo extends DmmActress {
-  hasVideos?: boolean;
+  videos?: DmmItem[];
 }
 
 export default async function Home() {
