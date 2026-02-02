@@ -103,16 +103,7 @@ export async function fetchAllActressesByInitial(initial: string): Promise<DmmAc
         return await fetchActresses(initial, 20);
     } catch (error) {
         console.error(`Failed to fetch actresses for initial '${initial}'. Using fallback data for build. Error:`, error);
-        // Fallback data to allow build to complete
-        return [
-            {
-                id: 1019323, // Example ID from user prompt
-                name: "望月あやか",
-                ruby: "モチヅキアヤカ",
-                imageURL: {
-                    large: "https://pics.dmm.co.jp/mono/actjpgs/medium/1019323.jpg"
-                }
-            }
-        ];
+        // Fallback data must be empty to avoid 404 errors during build if API is down
+        return [];
     }
 }
