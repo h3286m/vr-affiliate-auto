@@ -1,24 +1,73 @@
-export default function Home() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-8 text-center sm:p-20">
-      <main className="flex flex-col items-center gap-8">
-        <h1 className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-5xl font-bold text-transparent sm:text-7xl">
-          VR Experience
-        </h1>
-        <p className="max-w-md text-lg text-gray-400">
-          The ultimate immersive experience is coming soon.
-          <br />
-          Built with Next.js & Tailwind CSS.
-        </p>
+import Link from 'next/link';
+import { fetchAllActressesByInitial, fetchActressItems } from '@/lib/dmm-api';
 
-        <div className="flex gap-4">
-          <button className="rounded-full bg-primary px-8 py-3 font-semibold text-white transition hover:opacity-90">
-            Enter
-          </button>
-          <button className="rounded-full border border-gray-700 px-8 py-3 font-semibold text-gray-300 transition hover:bg-white/5">
-            Learn More
-          </button>
+export default async function Home() {
+  // Fetch 'あ' actresses for the homepage index
+  const actresses = await fetchAllActressesByInitial('あ');
+
+  // Filter actresses to only include those with at least 1 VR video
+  // Note: This increases build time but ensures high quality list.
+  const checks = await Promise.all(
+    actresses.map(async (actress) => {
+      // Fetch just 1 item to check existence (limit 1 for speed)
+      // fetchActressItems already applies 'VR' keyword, 'sample' filter, and 'rank' sort.
+      const items = await fetchActressItems(actress.id.toString(), 1);
+      return { ...actress, hasVideos: items.length > 0 };
+    })
+  );
+
+  const filteredActresses = checks.filter(a => a.hasVideos);
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0b] text-[#ededed]">
+      <main className="mx-auto max-w-4xl px-4 py-16">
+        <h1 className="mb-12 text-center text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+          VR Actress Database
+        </h1>
+
+        <div className="mb-8">
+          <h2 className="mb-6 text-2xl font-bold border-b border-gray-800 pb-2">
+            「あ」行の女優一覧 (Top {filteredActresses.length})
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {filteredActresses.map((actress) => (
+              <Link
+                key={actress.id}
+                href={`/actress/${actress.id}`}
+                className="group block overflow-hidden rounded-lg bg-gray-900 transition hover:bg-gray-800"
+              >
+                {/* Image Placeholder or Actual Image if available */}
+                <div className="aspect-[3/4] w-full bg-gray-800 relative">
+                  {actress.imageURL?.large ? (
+                    <img
+                      src={actress.imageURL.large}
+                      alt={actress.name}
+                      className="absolute h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-600">
+                      No Image
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3">
+                  <h3 className="truncate font-bold text-sm text-gray-200 group-hover:text-white">
+                    {actress.name}
+                  </h3>
+                  {actress.ruby && (
+                    <div className="truncate text-xs text-gray-500">
+                      {actress.ruby}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
+
       </main>
     </div>
   );
