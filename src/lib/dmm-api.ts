@@ -1,17 +1,20 @@
-import { DmmItemListResponse, DmmItem, DmmActressSearchResponse, DmmActress } from '@/types/dmm';
+import { DmmItemListResponse, DmmItem, DmmActressSearchResponse, DmmActress } from '../types/dmm';
 
-const DMM_API_ID = process.env.DMM_API_ID!;
-const DMM_AFFILIATE_ID = process.env.DMM_AFFILIATE_ID!;
+// Removed top-level env access
 const DMM_API_BASE_ITEM = "https://api.dmm.com/affiliate/v3/ItemList";
 const DMM_API_BASE_ACTRESS = "https://api.dmm.com/affiliate/v3/ActressSearch";
 
 function getBaseParams() {
-    if (!DMM_API_ID || !DMM_AFFILIATE_ID) {
+    const apiId = process.env.DMM_API_ID;
+    const affiliateId = process.env.DMM_AFFILIATE_ID;
+
+    if (!apiId || !affiliateId) {
+        console.error("Missing Env Vars:", { API_ID: !!apiId, AFFILIATE: !!affiliateId });
         throw new Error("DMM API ID or Affiliate ID is not set in environment variables.");
     }
     return {
-        api_id: DMM_API_ID,
-        affiliate_id: DMM_AFFILIATE_ID,
+        api_id: apiId,
+        affiliate_id: affiliateId,
         output: 'json',
     };
 }
