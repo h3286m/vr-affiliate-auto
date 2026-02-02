@@ -100,7 +100,7 @@ export async function fetchAllActressesByInitial(initial: string): Promise<DmmAc
     // Limited implementation for now - modification to fetch ALL (pagination) would go here
     // For 'Logic 1' equivalence, we would iterate offsets.
     try {
-        return await fetchActresses(initial, 20);
+        return await fetchActresses(initial, 100);
     } catch (error) {
         console.error(`Failed to fetch actresses for initial '${initial}'. Using fallback data for build. Error:`, error);
         // Fallback data must be empty to avoid 404 errors during build if API is down
