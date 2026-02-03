@@ -33,7 +33,8 @@ async function main() {
             const results = await Promise.all(batch.map(async (actress) => {
                 try {
                     // Fetch items sorted by rank (popularity)
-                    const items = await fetchActressItems(actress.id.toString(), 20, 'VR', 'rank');
+                    // Increased limit to 100 to ensure we find valid VR videos (user reported missing items)
+                    const items = await fetchActressItems(actress.id.toString(), 100, 'VR', 'rank');
 
                     // Strict Filter: Title must start with 【VR】 AND release date >= 2016
                     const strictVrItems = items.filter(item => {

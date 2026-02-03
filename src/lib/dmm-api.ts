@@ -114,7 +114,7 @@ export async function fetchAllActressesByInitial(initial: string): Promise<DmmAc
     let allActresses: DmmActress[] = [];
     let offset = 1;
     let hasMore = true;
-    const MAX_FETCH_COUNT = 1000; // Safety limit to prevent infinite loops
+    const MAX_FETCH_COUNT = 5000; // Increased limit to capture all actresses (User reported missing ones)
 
     try {
         console.log(`Starting fetch for initial: ${initial}`);
