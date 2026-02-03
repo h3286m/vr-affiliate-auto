@@ -10,15 +10,10 @@ async function probe() {
     // Fetch with fetch-data params
     const items = await fetchActressItems('1006229', 100, 'VR', 'rank');
     if (items.length > 0) {
-        const item = items[0];
-        console.log("--- Item Fields ---");
-        console.log(`Title: ${item.title}`);
-        console.log(`Headline: ${item.headline || 'N/A'}`);
-        console.log(`Comment: ${item.comment || 'N/A'}`);
-        console.log(`ItemInfo present? ${!!item.iteminfo}`);
-        if (item.iteminfo) {
-            console.log(`Genres: ${JSON.stringify(item.iteminfo.genre)}`);
-        }
+        console.log(`Found ${items.length} items.`);
+        items.slice(0, 10).forEach((item, index) => {
+            console.log(`[${index}] Date: ${item.date} | Title: ${item.title}`);
+        });
     } else {
         console.log("No items found.");
     }
