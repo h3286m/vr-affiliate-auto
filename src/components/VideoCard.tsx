@@ -58,6 +58,17 @@ export default function VideoCard({ item }: VideoCardProps) {
                 </a>
             </figure>
 
+            {/* Tags (Genres) */}
+            {item.iteminfo?.genre && item.iteminfo.genre.length > 0 && (
+                <div className="mb-6 flex flex-wrap gap-2 justify-center">
+                    {item.iteminfo.genre.map((g) => (
+                        <span key={g.id} className="rounded-full bg-gray-800 px-3 py-1 text-xs text-gray-300">
+                            {g.name}
+                        </span>
+                    ))}
+                </div>
+            )}
+
             {/* Button */}
             <div className="mb-8 text-center">
                 <a
@@ -70,13 +81,13 @@ export default function VideoCard({ item }: VideoCardProps) {
                 </a>
             </div>
 
-            {/* Description Box (Placeholder as per script) */}
+            {/* Description Box */}
             <div className="rounded-lg border border-gray-700 bg-gray-900 p-6">
                 <div className="mb-4 inline-block rounded bg-gray-800 px-3 py-1 text-sm text-gray-300">
                     作品紹介
                 </div>
                 <div className="text-gray-400">
-                    <p>ここに説明文を入力してください。</p>
+                    <p>{item.headline || item.title}</p>
                 </div>
             </div>
         </div>
