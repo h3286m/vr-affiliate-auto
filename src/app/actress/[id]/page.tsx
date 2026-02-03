@@ -81,32 +81,23 @@ export default async function ActressPage({ params }: { params: Promise<{ id: st
                         <div className="flex-1 text-center sm:text-left">
                             <h1 className="mb-4 text-3xl font-bold text-white">{actressName}</h1>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-400 sm:grid-cols-2">
-                                {actress.birthday && (
-                                    <>
-                                        <div>生年月日:</div>
-                                        <div className="text-gray-200">{actress.birthday}</div>
-                                    </>
-                                )}
-                                {actress.blood_type && (
-                                    <>
-                                        <div>血液型:</div>
-                                        <div className="text-gray-200">{actress.blood_type}型</div>
-                                    </>
-                                )}
-                                {(actress.bust || actress.waist || actress.hip) && (
-                                    <>
-                                        <div>スリーサイズ:</div>
-                                        <div className="text-gray-200">
-                                            B{actress.bust || '?'} / W{actress.waist || '?'} / H{actress.hip || '?'}
-                                        </div>
-                                    </>
-                                )}
-                                {actress.hobby && (
-                                    <>
-                                        <div>趣味:</div>
-                                        <div className="text-gray-200">{actress.hobby}</div>
-                                    </>
-                                )}
+                                {/* Birthday */}
+                                <div>生年月日:</div>
+                                <div className="text-gray-200">{actress.birthday || ''}</div>
+
+                                {/* Blood Type */}
+                                <div>血液型:</div>
+                                <div className="text-gray-200">{actress.blood_type ? `${actress.blood_type}型` : '型'}</div>
+
+                                {/* Three Sizes */}
+                                <div>スリーサイズ:</div>
+                                <div className="text-gray-200">
+                                    B{actress.bust || ''} / W{actress.waist || ''} / H{actress.hip || ''}
+                                </div>
+
+                                {/* Hobby */}
+                                <div>趣味:</div>
+                                <div className="text-gray-200">{actress.hobby || ''}</div>
                             </div>
                         </div>
                     </div>
