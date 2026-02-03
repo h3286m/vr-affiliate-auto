@@ -37,10 +37,27 @@ async function main() {
             }
         }
 
-        // 1. Fetch all actresses starting with 'あ'
-        console.log("Fetching 'あ' actresses...");
-        let actresses = await fetchAllActressesByInitial('あ'); // Changed const to let
-        console.log(`Found ${actresses.length} actresses from list.`);
+        // 1. Fetch all actresses starting with Japanese syllabary
+        const initials = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ'];
+        let actresses: any[] = []; // Changed to use imported type in real code, but 'any' ok for now as it's DmmActress[]
+
+        console.log(`Starting fetch loop for initials: ${initials.join(', ')}`);
+
+        for (const initial of initials) {
+            console.log(`\nFetching '${initial}' actresses...`);
+            try {
+                const batch = await fetchAllActressesByInitial(initial);
+                console.log(`  -> Fetched ${batch.length} actresses for '${initial}'.`);
+                actresses = actresses.concat(batch);
+
+                // Sleep to respect API limits (1 second)
+                console.log(`  -> Sleeping for 1s...`);
+                await new Promise(r => setTimeout(r, 1000));
+            } catch (err) {
+                console.error(`  -> Failed to fetch '${initial}':`, err);
+            }
+        }
+        console.log(`\nTotal actresses fetched: ${actresses.length}`);
 
         // 1.5 Force Fetch Missing Actresses from CSV
         if (forceFetchIds.length > 0) {
