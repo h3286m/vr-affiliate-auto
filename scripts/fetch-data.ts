@@ -32,20 +32,24 @@ async function main() {
             const batch = actresses.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(async (actress) => {
                 try {
-                    // Fetch up to 20 items to filter down to 10 valid ones
-                    // We need enough videos to populate the detail page
-                    const items = await fetchActressItems(actress.id.toString(), 20);
+                    // Fetch items sorted by rank (popularity)
+                    const items = await fetchActressItems(actress.id.toString(), 20, 'VR', 'rank');
 
-                    if (items.length > 0) {
+                    // Strict Filter: Title must start with 【VR】 AND release date >= 2016
+                    const strictVrItems = items.filter(item => {
+                        const isVR = item.title && item.title.startsWith('【VR】');
+                        const isRecent = item.date && item.date >= '2016-01-01';
+                        return isVR && isRecent;
+                    });
+
+                    // Limit to 10 items for the view
+                    const limitedItems = strictVrItems.slice(0, 10);
+
+                    if (limitedItems.length > 0) {
                         process.stdout.write('O'); // Found videos
-                        // Return the actress object EXTENDED with the videos
-                        // We don't strictly need a separate profile fetch if the list data is enough,
-                        // but page.tsx used it. The list object usually contains the name correctly.
-                        // We'll trust the list object for now to save time/requests, 
-                        // as DmmActress entries from search have names.
                         return {
                             ...actress,
-                            videos: items // Attach videos here
+                            videos: limitedItems
                         };
                     } else {
                         process.stdout.write('.'); // No videos
@@ -64,6 +68,9 @@ async function main() {
                 await new Promise(resolve => setTimeout(resolve, DELAY_MS));
             }
         }
+
+        // 4. Sort Valid Actresses by Video Count (Popularity Proxy)
+        validActresses.sort((a, b) => b.videos.length - a.videos.length);
 
         console.log(`\n\nFinished! Found ${validActresses.length} valid VR actresses out of ${actresses.length}.`);
 

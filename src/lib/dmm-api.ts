@@ -19,22 +19,27 @@ function getBaseParams() {
     };
 }
 
-export async function fetchActressItems(actressId: string, hits: number = 100): Promise<DmmItem[]> {
+export async function fetchActressItems(
+    actressId: string,
+    hits: number = 100,
+    keyword: string = 'VR',
+    sort: string = 'rank'
+): Promise<DmmItem[]> {
     try {
         const params = new URLSearchParams({
             ...getBaseParams(),
             site: 'FANZA',
             service: 'digital',
             floor: 'videoa',
-            hits: '50',
-            sort: 'rank',
-            keyword: 'VR',
+            hits: hits.toString(),
+            sort: sort,
+            keyword: keyword,
             article: 'actress',
             article_id: actressId,
         });
 
         const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
-        console.log(`Fetching Items: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
+        // console.log(`Fetching Items: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
 
         const response = await fetch(url);
         if (!response.ok) {
@@ -45,7 +50,7 @@ export async function fetchActressItems(actressId: string, hits: number = 100): 
         const data: DmmItemListResponse = await response.json();
         const items = data.result?.items || [];
         const validItems = items.filter(item => item.sampleMovieURL);
-        return validItems.slice(0, 10);
+        return validItems;
     } catch (error) {
         console.error("Error fetching items from DMM API:", error);
         return [];
