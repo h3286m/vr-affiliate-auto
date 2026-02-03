@@ -7,6 +7,7 @@ import 'tsconfig-paths/register';
 import fs from 'fs';
 import path from 'path';
 import { fetchAllActressesByInitial, fetchActressItems, fetchActressProfile } from '../src/lib/dmm-api';
+import { SYLLABARY_ROWS } from '../src/lib/utils';
 
 async function main() {
     console.log('Starting local data fetch...');
@@ -38,7 +39,8 @@ async function main() {
         }
 
         // 1. Fetch all actresses starting with Japanese syllabary
-        const initials = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ'];
+        // Flatten all ranges to get every character (あ, い, う, え, お, か... etc)
+        const initials = SYLLABARY_ROWS.flatMap(row => row.range);
         let actresses: any[] = []; // Changed to use imported type in real code, but 'any' ok for now as it's DmmActress[]
 
         console.log(`Starting fetch loop for initials: ${initials.join(', ')}`);
