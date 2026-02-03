@@ -73,6 +73,45 @@ async function main() {
         // 4. Sort Valid Actresses by Video Count (Popularity Proxy)
         validActresses.sort((a, b) => b.videos.length - a.videos.length);
 
+        // 5. Merge with Enrichment CSV (if exists)
+        const csvPath = path.join(process.cwd(), 'src', 'data', 'actress_enrichment.csv');
+        if (fs.existsSync(csvPath)) {
+            console.log('Merging enrichment data from CSV...');
+            const csvContent = fs.readFileSync(csvPath, 'utf-8');
+            const lines = csvContent.split('\n');
+            const headers = lines[0].split(','); // id,name,custom_bio,custom_bust...
+
+            // Simple CSV parser (assuming no commas in values for now, or minimal complexity)
+            // For production, a proper CSV parser library is recommended.
+            const enrichmentMap = new Map();
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length >= 2) {
+                    const id = parts[0];
+                    // parts[1] is name
+                    const bio = parts[2];
+                    const bust = parts[3];
+                    const waist = parts[4];
+                    const hip = parts[5];
+                    enrichmentMap.set(id, { bio, bust, waist, hip });
+                }
+            }
+
+            validActresses.forEach(actress => {
+                const extra = enrichmentMap.get(actress.id.toString());
+                if (extra) {
+                    if (extra.bust) actress.bust = extra.bust;
+                    if (extra.waist) actress.waist = extra.waist;
+                    if (extra.hip) actress.hip = extra.hip;
+                    // If we had a bio field in DmmActress, we'd set it here.
+                    // For now, let's inject it as 'hobby' or a new field if generic?
+                    // But DmmActress type needs to support it. 
+                    // Let's assume 'hobby' is a good place for bio/comment if empty.
+                    if (extra.bio && !actress.hobby) actress.hobby = extra.bio;
+                }
+            });
+        }
+
         console.log(`\n\nFinished! Found ${validActresses.length} valid VR actresses out of ${actresses.length}.`);
 
         // 3. Save to file
