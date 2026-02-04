@@ -204,13 +204,6 @@ async function main() {
                             ...actress,
                             videos: limitedItems
                         };
-                    } else if (forceFetchIds.includes(actress.id.toString())) {
-                        process.stdout.write('P'); // Priority kept
-                        return {
-                            ...actress,
-                            videos: []
-                        };
-                    } else {
                         process.stdout.write('.'); // No videos
                         return null;
                     }
