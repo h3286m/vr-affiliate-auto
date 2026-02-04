@@ -38,25 +38,76 @@ async function main() {
             }
         }
 
+        // 0.5 Load Priority Actresses JSON
+        const priorityPath = path.join(process.cwd(), 'src', 'data', 'priority-actresses.json');
+        if (fs.existsSync(priorityPath)) {
+            console.log('Loading priority actresses from JSON...');
+            try {
+                const priorityContent = fs.readFileSync(priorityPath, 'utf-8');
+                const priorityIds = JSON.parse(priorityContent);
+                if (Array.isArray(priorityIds)) {
+                    priorityIds.forEach((id: string) => {
+                        // IDs might be strings or numbers in the JSON, ensure string
+                        forceFetchIds.push(String(id));
+                    });
+                    console.log(`Loaded ${priorityIds.length} priority IDs.`);
+                }
+            } catch (jsonErr) {
+                console.error('Error reading priority-actresses.json:', jsonErr);
+            }
+        }
+
+        // 0.6 Load Priority Actresses from CSV (New)
+        const priorityCsvPath = path.join(process.cwd(), 'src', 'data', 'priority.csv');
+        if (fs.existsSync(priorityCsvPath)) {
+            console.log('Loading priority actresses from CSV...');
+            try {
+                const csvContent = fs.readFileSync(priorityCsvPath, 'utf-8');
+                const lines = csvContent.split('\n');
+                let csvCount = 0;
+                // Simple CSV parser: assume ID is first column
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    const parts = line.split(',');
+                    const id = parts[0].trim().replace(/['"]/g, ''); // Remove quotes if present
+
+                    if (id.toLowerCase() === 'id' || id.toLowerCase().includes('actress')) continue;
+
+                    if (id.length > 0) {
+                        forceFetchIds.push(id);
+                        csvCount++;
+                    }
+                }
+                console.log(`Loaded ${csvCount} priority IDs from CSV.`);
+            } catch (csvErr) {
+                console.error('Error reading priority.csv:', csvErr);
+            }
+        }
+
         // 1. Fetch all actresses starting with Japanese syllabary
         // Flatten all ranges to get every character (あ, い, う, え, お, か... etc)
         const initials = SYLLABARY_ROWS.flatMap(row => row.range);
-        let actresses: any[] = []; // Changed to use imported type in real code, but 'any' ok for now as it's DmmActress[]
+        let actresses: any[] = [];
 
-        console.log(`Starting fetch loop for initials: ${initials.join(', ')}`);
+        if (process.argv.includes('--quick')) {
+            console.log("--- QUICK MODE: Skipping main syllabary fetch ---");
+        } else {
+            console.log(`Starting fetch loop for initials: ${initials.join(', ')}`);
 
-        for (const initial of initials) {
-            console.log(`\nFetching '${initial}' actresses...`);
-            try {
-                const batch = await fetchAllActressesByInitial(initial);
-                console.log(`  -> Fetched ${batch.length} actresses for '${initial}'.`);
-                actresses = actresses.concat(batch);
+            for (const initial of initials) {
+                console.log(`\nFetching '${initial}' actresses...`);
+                try {
+                    const batch = await fetchAllActressesByInitial(initial);
+                    console.log(`  -> Fetched ${batch.length} actresses for '${initial}'.`);
+                    actresses = actresses.concat(batch);
 
-                // Sleep to respect API limits (1 second)
-                console.log(`  -> Sleeping for 1s...`);
-                await new Promise(r => setTimeout(r, 1000));
-            } catch (err) {
-                console.error(`  -> Failed to fetch '${initial}':`, err);
+                    // Sleep to respect API limits (1 second)
+                    console.log(`  -> Sleeping for 1s...`);
+                    await new Promise(r => setTimeout(r, 1000));
+                } catch (err) {
+                    console.error(`  -> Failed to fetch '${initial}':`, err);
+                }
             }
         }
         console.log(`\nTotal actresses fetched: ${actresses.length}`);

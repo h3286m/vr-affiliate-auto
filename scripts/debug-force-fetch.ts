@@ -1,5 +1,7 @@
 
 import 'tsconfig-paths/register';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 import fs from 'fs';
 import path from 'path';
 import { fetchActressProfile, fetchActressItems } from '../src/lib/dmm-api';
@@ -17,6 +19,24 @@ async function debug() {
             if (parts.length >= 2) {
                 forceFetchIds.push(parts[0].trim());
             }
+        }
+    }
+
+    // Load Priority Actresses JSON
+    const priorityPath = path.join(process.cwd(), 'src', 'data', 'priority-actresses.json');
+    if (fs.existsSync(priorityPath)) {
+        console.log('Loading priority actresses from JSON...');
+        try {
+            const priorityContent = fs.readFileSync(priorityPath, 'utf-8');
+            const priorityIds = JSON.parse(priorityContent);
+            if (Array.isArray(priorityIds)) {
+                priorityIds.forEach((id: string) => {
+                    forceFetchIds.push(String(id));
+                });
+                console.log(`Loaded ${priorityIds.length} priority IDs.`);
+            }
+        } catch (jsonErr) {
+            console.error('Error reading priority-actresses.json:', jsonErr);
         }
     }
     console.log(`CSV IDs: ${forceFetchIds.join(', ')}`);
@@ -55,8 +75,27 @@ async function debug() {
     }
 
     console.log("--- HARDCODED CHECK ---");
-    const hProfile = await fetchActressProfile('1006229');
-    console.log(`Hardcoded '1006229' result: ${hProfile ? hProfile.name : 'null'}`);
+    const results = [];
+    // Run Logic
+    for (const id of forceFetchIds) {
+        console.log(`Processing ID '${id}'`);
+        try {
+            const profile = await fetchActressProfile(id);
+            if (profile) {
+                console.log(`  -> Fetched Profile: ${profile.name}`);
+                results.push({ id, name: profile.name, success: true });
+            } else {
+                console.log(`  -> Profile fetch returned null`);
+                results.push({ id, success: false });
+            }
+        } catch (e) {
+            console.error(e);
+            results.push({ id, success: false, error: String(e) });
+        }
+    }
+
+    fs.writeFileSync('debug_results.json', JSON.stringify(results, null, 2));
+    console.log("Written to debug_results.json");
 }
 
 debug();
