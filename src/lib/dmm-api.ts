@@ -25,35 +25,64 @@ export async function fetchActressItems(
     keyword: string = 'VR',
     sort: string = 'rank'
 ): Promise<DmmItem[]> {
+    let allItems: DmmItem[] = [];
+    let offset = 1;
+    let hasMore = true;
+    const MAX_PAGES = 20; // Limit to ~2000 items for general search to prevent timeouts
+
     try {
-        const params = new URLSearchParams({
-            ...getBaseParams(),
-            site: 'FANZA',
-            service: 'digital',
-            floor: 'videoa',
-            hits: hits.toString(),
-            sort: sort,
-            keyword: keyword,
-            article: 'actress',
-            article_id: actressId,
-        });
+        let page = 0;
+        while (hasMore && page < MAX_PAGES) {
+            const params = new URLSearchParams({
+                ...getBaseParams(),
+                site: 'FANZA',
+                service: 'digital',
+                floor: 'videoa',
+                hits: hits.toString(), // Usually 100
+                offset: offset.toString(),
+                sort: sort,
+                keyword: keyword,
+                article: 'actress',
+                article_id: actressId,
+            });
 
-        const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
-        // console.log(`Fetching Items: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
+            const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
+            const response = await fetch(url);
 
-        const response = await fetch(url);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`DMM API Error (${response.status}): ${response.statusText} - ${errorText}`);
+            if (!response.ok) {
+                // If API errors on a page, stop paging but return what we have
+                console.warn(`API Error in fetchActressItems (Page ${page + 1}): ${response.status}`);
+                break;
+            }
+
+            const data: DmmItemListResponse = await response.json();
+            const items = data.result?.items || [];
+
+            // DMM API behavior: if offset > total, it might return empty list or error
+            if (items.length > 0) {
+                // Filter validation (must have sample)
+                const validBatch = items.filter(item => item.sampleMovieURL);
+                allItems = [...allItems, ...validBatch];
+
+                // Prepare next page
+                offset += hits;
+                page++;
+
+                // If we got fewer than requested, we are done
+                if (items.length < hits) {
+                    hasMore = false;
+                } else {
+                    // Small delay to prevent rate limit during heavy paging
+                    await new Promise(r => setTimeout(r, 100));
+                }
+            } else {
+                hasMore = false;
+            }
         }
-
-        const data: DmmItemListResponse = await response.json();
-        const items = data.result?.items || [];
-        const validItems = items.filter(item => item.sampleMovieURL);
-        return validItems;
+        return allItems;
     } catch (error) {
         console.error("Error fetching items from DMM API:", error);
-        return [];
+        return allItems; // Return whatever we found so far
     }
 }
 
@@ -144,16 +173,17 @@ async function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ... existing code ...
 export async function fetchAllActressesByInitial(initial: string): Promise<DmmActress[]> {
+    // ... existing implementation ...
     let allActresses: DmmActress[] = [];
     let offset = 1;
     let hasMore = true;
-    const MAX_FETCH_COUNT = 5000; // Increased limit to capture all actresses (User reported missing ones)
+    const MAX_FETCH_COUNT = 5000;
 
     try {
         console.log(`Starting fetch for initial: ${initial}`);
         while (hasMore && allActresses.length < MAX_FETCH_COUNT) {
-            // Fetch 100 items at a time
             const actresses = await fetchActresses(initial, 100, offset);
 
             if (actresses.length === 0) {
@@ -161,26 +191,71 @@ export async function fetchAllActressesByInitial(initial: string): Promise<DmmAc
             } else {
                 allActresses = [...allActresses, ...actresses];
                 console.log(`Fetched ${actresses.length} actresses (Total: ${allActresses.length})`);
-
-                // If we got fewer than requested (100), we've reached the end
-                // Note: The filter inside fetchActresses might reduce the count, 
-                // so we should rely on the raw response size if possible, 
-                // but checking if we got *any* results is a safe basic check.
-                // A more robust check might require checking result_count from response, 
-                // but for now, let's increment offset by 100.
                 offset += 100;
-
-                // Be polite to the API
                 await delay(DELAY_MS);
             }
         }
-
         console.log(`Finished fetching. Total actresses for '${initial}': ${allActresses.length}`);
         return allActresses;
 
     } catch (error) {
         console.error(`Failed to fetch actresses for initial '${initial}'. Using fallback data for build. Error:`, error);
-        // Return whatever we managed to fetch so far, or empty
         return allActresses;
     }
 }
+
+/**
+ * Fetches ALL "videoa" (Adult Video) items for an actress using pagination.
+ * Does NOT use keyword filtering to ensure we don't miss items with poor metadata.
+ */
+export async function fetchFullActressVideoList(actressId: string): Promise<DmmItem[]> {
+    let allItems: DmmItem[] = [];
+    let offset = 1;
+    let hasMore = true;
+    const MAX_PAGES = 50; // Safety limit (5000 videos)
+
+    console.log(`Fetching FULL video list for ID: ${actressId}`);
+
+    try {
+        let page = 0;
+        while (hasMore && page < MAX_PAGES) {
+            const params = new URLSearchParams({
+                ...getBaseParams(),
+                site: 'FANZA',
+                service: 'digital',
+                floor: 'videoa',
+                hits: '100',
+                offset: offset.toString(),
+                sort: 'date',
+                article: 'actress',
+                article_id: actressId,
+            });
+
+            const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                console.warn(`Failed to fetch page ${page + 1} for ${actressId}: ${response.status}`);
+                break;
+            }
+
+            const data: DmmItemListResponse = await response.json();
+            const items = data.result?.items || [];
+
+            if (items.length > 0) {
+                allItems = [...allItems, ...items];
+                // console.log(`  -> Page ${page + 1}: +${items.length} items`);
+                offset += 100;
+                page++;
+                await delay(100); // Small delay between pages
+            } else {
+                hasMore = false;
+            }
+        }
+        return allItems;
+    } catch (error) {
+        console.error(`Error in fetchFullActressVideoList for ${actressId}:`, error);
+        return [];
+    }
+}
+

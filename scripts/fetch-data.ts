@@ -6,7 +6,7 @@ dotenv.config({ path: '.env.local' });
 import 'tsconfig-paths/register';
 import fs from 'fs';
 import path from 'path';
-import { fetchAllActressesByInitial, fetchActressItems, fetchActressProfile } from '../src/lib/dmm-api';
+import { fetchAllActressesByInitial, fetchActressItems, fetchActressProfile, fetchFullActressVideoList } from '../src/lib/dmm-api';
 import { SYLLABARY_ROWS } from '../src/lib/utils';
 
 async function main() {
@@ -123,8 +123,34 @@ async function main() {
                     try {
                         const profile = await fetchActressProfile(id);
                         if (profile) {
-                            actresses.push(profile);
-                            console.log(`  -> Added ${profile.name}`);
+                            // Use FULL fetch (no keyword, all pages) for priority
+                            console.log(`  -> Fetching ALL videos for ${profile.name}...`);
+                            const allItems = await fetchFullActressVideoList(id);
+
+                            // Apply Strict VR Filter locally
+                            const strictVrItems = allItems.filter(item => {
+                                const isVR = item.title && (item.title.includes('【VR】') || item.title.includes('[VR]'));
+                                const isRecent = item.date && item.date >= '2016-01-01';
+                                return isVR && isRecent;
+                            });
+
+                            // Limit to newest 10
+                            const limitedItems = strictVrItems.slice(0, 10);
+
+                            if (limitedItems.length > 0) {
+                                actresses.push({
+                                    ...profile,
+                                    videos: limitedItems
+                                });
+                                console.log(`  -> Added ${profile.name} with ${limitedItems.length} videos`);
+                            } else {
+                                // Fallback: Keep even if 0 videos (as requested previously, but usually won't happen now)
+                                console.log(`  -> Added ${profile.name} (0 videos found despite full scan)`);
+                                actresses.push({
+                                    ...profile,
+                                    videos: []
+                                });
+                            }
                         } else {
                             console.log(`  -> Failed to fetch profile for ${id}`);
                         }
@@ -152,9 +178,14 @@ async function main() {
         for (let i = 0; i < actresses.length; i += BATCH_SIZE) {
             const batch = actresses.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(async (actress) => {
+                // If videos are already populated (Priority Step), return as is
+                if (actress.videos) {
+                    return actress;
+                }
+
                 try {
                     // Fetch items sorted by rank (popularity)
-                    // Increased limit to 100 to ensure we find valid VR videos (user reported missing items)
+                    // Updated to support pagination internally in dmm-api.ts
                     const items = await fetchActressItems(actress.id.toString(), 100, 'VR', 'rank');
 
                     // Strict Filter: Title must start with 【VR】 AND release date >= 2016
@@ -172,6 +203,12 @@ async function main() {
                         return {
                             ...actress,
                             videos: limitedItems
+                        };
+                    } else if (forceFetchIds.includes(actress.id.toString())) {
+                        process.stdout.write('P'); // Priority kept
+                        return {
+                            ...actress,
+                            videos: []
                         };
                     } else {
                         process.stdout.write('.'); // No videos
@@ -211,9 +248,20 @@ async function main() {
 
         // 3. Save to file
         const outputPath = path.join(process.cwd(), 'src', 'data', 'actresses.json');
-        fs.writeFileSync(outputPath, JSON.stringify(validActresses, null, 2));
-        console.log(`Data saved to ${outputPath}`);
+        // Sort actresses by the date of their newest video (videos[0].date) descending
+        actresses.sort((a, b) => {
+            const dateA = a.videos && a.videos.length > 0 ? a.videos[0].date : '';
+            const dateB = b.videos && b.videos.length > 0 ? b.videos[0].date : '';
+            // Descending order (Newest first)
+            if (dateA > dateB) return -1;
+            if (dateA < dateB) return 1;
+            return 0;
+        });
 
+        // Save to JSON
+        const ACTRESSES_PATH = outputPath; // Assuming outputPath is the target for this
+        fs.writeFileSync(ACTRESSES_PATH, JSON.stringify(actresses, null, 2));
+        console.log(`\nSaved ${actresses.length} actresses to ${ACTRESSES_PATH}`);
     } catch (error) {
         console.error('Fatal error during execution:', error);
         process.exit(1);
