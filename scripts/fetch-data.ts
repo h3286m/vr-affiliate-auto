@@ -91,8 +91,9 @@ async function main() {
         let actresses: any[] = [];
 
         if (process.argv.includes('--quick')) {
-            console.log("--- QUICK MODE: Skipping main syllabary fetch ---");
+            console.log("--- QUICK MODE: Skipping main syllabary fetch. Only fetching Priority/Master Data ---");
         } else {
+            // ... existing crawl logic ...
             console.log(`Starting fetch loop for initials: ${initials.join(', ')}`);
 
             for (const initial of initials) {
@@ -110,9 +111,9 @@ async function main() {
                 }
             }
         }
-        console.log(`\nTotal actresses fetched: ${actresses.length}`);
+        console.log(`\nTotal actresses fetched (pre-priority): ${actresses.length}`);
 
-        // 1.5 Force Fetch Missing Actresses from CSV
+        // 1.5 Force Fetch Missing Actresses from CSV/JSON (Master Data Injection)
         if (forceFetchIds.length > 0) {
             console.log(`Checking ${forceFetchIds.length} IDs from CSV for force-fetch...`);
             const existingIds = new Set(actresses.map(a => a.id.toString()));

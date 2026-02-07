@@ -120,6 +120,40 @@ export async function fetchNewestVRVideos(
     }
 }
 
+export async function fetchPopularVRVideos(
+    hits: number = 100,
+    offset: number = 1,
+    keyword: string = 'VR'
+): Promise<DmmItem[]> {
+    try {
+        const params = new URLSearchParams({
+            ...getBaseParams(),
+            site: 'FANZA',
+            service: 'digital',
+            floor: 'videoa',
+            hits: hits.toString(),
+            offset: offset.toString(),
+            sort: 'rank', // Ranking sort
+            keyword: keyword,
+        });
+
+        const url = `${DMM_API_BASE_ITEM}?${params.toString()}`;
+        console.log(`Fetching Popular VR Videos: ${url.replace(params.get('api_id')!, '***').replace(params.get('affiliate_id')!, '***')}`);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`DMM API Error (${response.status}): ${response.statusText} - ${errorText}`);
+        }
+
+        const data: DmmItemListResponse = await response.json();
+        return data.result?.items || [];
+    } catch (error) {
+        console.error("Error fetching popular items from DMM API:", error);
+        return [];
+    }
+}
+
 export async function fetchActresses(initial: string, hits: number = 20, offset: number = 1): Promise<DmmActress[]> {
     try {
         const params = new URLSearchParams({

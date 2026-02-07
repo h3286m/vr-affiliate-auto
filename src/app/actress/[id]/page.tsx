@@ -10,6 +10,7 @@ import actressesDataRaw from '@/data/actresses.json';
 interface LocalActressData {
     id: string | number;
     name: string;
+    ruby: string; // Added for sorting
     videos: DmmItem[];
     bust?: number | string | null;
     waist?: number | string | null;
@@ -21,11 +22,15 @@ interface LocalActressData {
         large?: string;
         small?: string;
     };
-    // ... other props extended from DmmActress
 }
 
 // Cast the JSON to our type
 const actressesData = actressesDataRaw as unknown as LocalActressData[];
+
+// Sort actresses by Ruby (Syllabary order) for navigation
+const sortedActresses = [...actressesData].sort((a, b) => {
+    return (a.ruby || '').localeCompare(b.ruby || '', 'ja');
+});
 
 export async function generateStaticParams() {
     // Generate paths for ALL actresses in our local data
@@ -34,11 +39,16 @@ export async function generateStaticParams() {
     }));
 }
 
-export default async function ActressPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export default async function ActressPage(props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
+    const { id } = params;
 
     // Find the actress in our local data
-    const actress = actressesData.find(a => a.id.toString() === id);
+    const currentIndex = sortedActresses.findIndex(a => a.id.toString() === id);
+    const actress = sortedActresses[currentIndex];
+
+    const prevActress = currentIndex > 0 ? sortedActresses[currentIndex - 1] : null;
+    const nextActress = currentIndex !== -1 && currentIndex < sortedActresses.length - 1 ? sortedActresses[currentIndex + 1] : null;
 
     if (!actress) {
         notFound();
@@ -119,6 +129,47 @@ export default async function ActressPage({ params }: { params: Promise<{ id: st
                         <VideoCard key={item.content_id} item={item} />
                     ))}
                 </div>
+
+                {/* Bottom Navigation */}
+                <div className="mt-16 pt-8 border-t border-gray-800">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+
+                        {/* Previous Actress */}
+                        {prevActress ? (
+                            <Link
+                                href={`/actress/${prevActress.id}`}
+                                className="flex items-center px-6 py-3 bg-gray-900 border border-gray-700 hover:border-[#ff8f00] rounded-lg text-gray-300 hover:text-[#ff8f00] transition-colors w-full sm:w-auto justify-center max-w-[200px]"
+                            >
+                                <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                <span className="truncate">{prevActress.name}</span>
+                            </Link>
+                        ) : (
+                            <div className="w-full sm:w-auto px-6 py-3" />
+                        )}
+
+                        {/* Back to Top */}
+                        <Link
+                            href="/"
+                            className="flex items-center px-6 py-3 bg-[#ff8f00] hover:bg-[#ffca28] text-white font-bold rounded-lg shadow-lg hover:shadow-[#ff8f00]/20 transition-all w-full sm:w-auto justify-center"
+                        >
+                            トップに戻る
+                        </Link>
+
+                        {/* Next Actress */}
+                        {nextActress ? (
+                            <Link
+                                href={`/actress/${nextActress.id}`}
+                                className="flex items-center px-6 py-3 bg-gray-900 border border-gray-700 hover:border-[#ff8f00] rounded-lg text-gray-300 hover:text-[#ff8f00] transition-colors w-full sm:w-auto justify-center max-w-[200px]"
+                            >
+                                <span className="truncate">{nextActress.name}</span>
+                                <svg className="w-5 h-5 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </Link>
+                        ) : (
+                            <div className="w-full sm:w-auto px-6 py-3" />
+                        )}
+                    </div>
+                </div>
+
             </div>
         </div>
     );

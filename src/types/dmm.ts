@@ -23,6 +23,8 @@ export interface DmmItem {
     sampleMovieURL?: { [key: string]: string | number }; // Indicates presence of sample video
     date: string; // Release date
     iteminfo?: DmmItemInfo;
+    review_count?: number;
+    review_average?: number;
     [key: string]: any;
 }
 
