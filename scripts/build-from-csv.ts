@@ -93,9 +93,17 @@ async function fetchMetadataMap(limit: number = 3000): Promise<Map<string, any>>
             for (const item of items) {
                 // Store relevant metadata keyed by Content ID
                 if (item.content_id) {
+                    if (fetchedCount === 0 && items.indexOf(item) === 0) {
+                        console.log('DEBUG: First item keys:', Object.keys(item));
+                        if (item.iteminfo) {
+                            console.log('DEBUG: iteminfo keys:', Object.keys(item.iteminfo));
+                        } else {
+                            console.log('DEBUG: iteminfo is MISSING');
+                        }
+                    }
                     metadataMap.set(item.content_id, {
                         sampleMovieURL: item.sampleMovieURL,
-                        // We could fetch other fields too, but we mainly need sampleURL
+                        iteminfo: item.iteminfo // Store genre/maker info
                     });
                 }
             }
@@ -112,6 +120,110 @@ async function fetchMetadataMap(limit: number = 3000): Promise<Map<string, any>>
     }
     console.log(`\nFetched metadata for ${metadataMap.size} items.`);
     return metadataMap;
+}
+
+
+interface ApiActressProfile {
+    id: string;
+    name: string;
+    ruby: string;
+    bust?: string;
+    cup?: string;
+    waist?: string;
+    hip?: string;
+    height?: string;
+    birthday?: string;
+    blood_type?: string;
+    hobby?: string;
+    prefectures?: string;
+    imageURL?: { small?: string; large?: string; };
+}
+
+async function fetchActressProfiles(): Promise<Map<string, ApiActressProfile>> {
+    console.log('Fetching actress profiles from API (with pagination)...');
+    const apiId = process.env.DMM_API_ID;
+    const affiliateId = process.env.DMM_AFFILIATE_ID;
+
+    if (!apiId || !affiliateId) {
+        console.warn("Skipping Actress API fetch: Missing API keys");
+        return new Map();
+    }
+
+    const initials = [
+        'あ', 'い', 'う', 'え', 'お',
+        'か', 'き', 'く', 'け', 'こ',
+        'さ', 'し', 'す', 'せ', 'そ',
+        'た', 'ち', 'つ', 'て', 'と',
+        'な', 'に', 'ぬ', 'ね', 'の',
+        'は', 'ひ', 'ふ', 'へ', 'ほ',
+        'ま', 'み', 'む', 'め', 'も',
+        'や', 'ゆ', 'よ',
+        'ら', 'り', 'る', 'れ', 'ろ',
+        'わ'
+    ];
+
+    const profileMap = new Map<string, ApiActressProfile>();
+
+    for (const initial of initials) {
+        let offset = 1;
+        let fetchedDetail = 0;
+        let totalCount = 0;
+
+        // Loop until we fetch all for this initial
+        while (true) {
+            const hits = 100;
+            const url = `https://api.dmm.com/affiliate/v3/ActressSearch?api_id=${apiId}&affiliate_id=${affiliateId}&initial=${encodeURIComponent(initial)}&hits=${hits}&offset=${offset}&output=json`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    console.warn(`Actress API Error for ${initial} offset ${offset}: ${res.status}`);
+                    break;
+                }
+                const data: any = await res.json();
+                const actresses = data.result?.actress || [];
+                totalCount = data.result?.total_count || 0;
+
+                if (actresses.length === 0) break;
+
+                for (const act of actresses) {
+                    // normalize name to trim
+                    const name = act.name.trim();
+                    profileMap.set(name, {
+                        id: act.id,
+                        name: name,
+                        ruby: act.ruby, // API ruby is strict/correct
+                        bust: act.bust,
+                        cup: act.cup,
+                        waist: act.waist,
+                        hip: act.hip,
+                        height: act.height,
+                        birthday: act.birthday,
+                        blood_type: act.blood_type,
+                        hobby: act.hobby,
+                        prefectures: act.prefectures,
+                        imageURL: act.imageURL
+                    });
+                }
+
+                fetchedDetail += actresses.length;
+
+                if (fetchedDetail >= totalCount) break;
+
+                offset += hits;
+
+                // Rate limit slightly
+                await new Promise(r => setTimeout(r, 50));
+
+            } catch (e) {
+                console.error(`Error fetching actress initial ${initial}:`, e);
+                break;
+            }
+        }
+        process.stdout.write(initial); // progress indicator
+    }
+    console.log(`\nFetched profiles for ${profileMap.size} unique actresses from API.`);
+    return profileMap;
 }
 
 
@@ -171,8 +283,26 @@ async function main() {
         }
     }
 
+    // Define Omnibus/Compilation Genre IDs to exclude
+    const OMNIBUS_GENRE_IDS = [
+        4025, // Omnibus (オムニバス)
+        5015, // Best/Compilation (ベスト・総集編)
+        6003, // Best/Compilation (ベスト・総集編)
+        6609, // 10 hours plus (10時間以上作品)
+        6012  // 4 hours plus (4時間以上作品)
+    ];
+
+    // Define Omnibus Keywords to exclude even if Genre ID is missing
+    const OMNIBUS_KEYWORDS = ['オムニバス', 'ベスト', '総集編', 'BEST', 'ベスト版', 'セレクション', '厳選'];
+
+
+
     // NEW: Fetch Metadata from API to get sample URLs
     const metadataMap = await fetchMetadataMap(3000);
+    const actressProfileMap = await fetchActressProfiles();
+
+
+
 
     console.log('Loading Products CSV...');
     if (!fs.existsSync(PRODUCTS_CSV_PATH)) {
@@ -209,8 +339,24 @@ async function main() {
 
         const date = dateRaw ? dateRaw.split(' ')[0].replace(/\//g, '-') : '';
 
-        // Merge API Metadata (Sample URL)
+        // Merge API Metadata (Sample URL & Genre)
         const apiData = metadataMap.get(cid);
+
+        // Check for Omnibus/Compilation Keywords in Title (Primary safeguard)
+        const isOmnibusByTitle = OMNIBUS_KEYWORDS.some(k => title.includes(k));
+        if (isOmnibusByTitle) {
+            // console.log(`[Omnibus Keyword Filter] Excluded ${cid} ${title}`);
+            continue;
+        }
+
+        // Check for Omnibus/Compilation Genres (API-based)
+        if (apiData?.iteminfo?.genre) {
+            const hasOmnibus = apiData.iteminfo.genre.some((g: any) => OMNIBUS_GENRE_IDS.includes(g.id));
+            if (hasOmnibus) {
+                // console.log(`[Omnibus Genre Filter] Excluded ${cid} ${title}`);
+                continue;
+            }
+        }
 
         const product: DmmItem = {
             content_id: cid,
@@ -225,6 +371,7 @@ async function main() {
                 large: imgUrl
             },
             sampleMovieURL: apiData?.sampleMovieURL, // Add sample URL from API
+            iteminfo: apiData?.iteminfo, // Add genre/maker from API
             service_code: 'digital',
             floor_code: 'videoa',
             review_count: countVal,
@@ -251,18 +398,33 @@ async function main() {
 
                 if (!actressAggregation.has(actressId)) {
                     const enrich = enrichmentMap.get(displayName);
+                    // Try to match profile from API Map (Authoritative for Image & Ruby)
+                    const apiProfile = actressProfileMap.get(displayName);
+
+                    // Prioritize API data > CSV Data
+                    // If API profile exists, use its Ruby (fixes "Iori Ryoko" vs "Saijo Ruri" issue)
+                    const finalRuby = apiProfile?.ruby || profile?.ruby || '';
+                    const finalBust = apiProfile?.bust || enrich?.custom_bust || profile?.bust;
+                    const finalWaist = apiProfile?.waist || enrich?.custom_waist || profile?.waist;
+                    const finalHip = apiProfile?.hip || enrich?.custom_hip || profile?.hip;
+                    const finalHeight = apiProfile?.height || profile?.height;
+                    const finalBirthday = apiProfile?.birthday || profile?.birthday;
+                    const finalHobby = apiProfile?.hobby || enrich?.custom_bio || profile?.hobby;
+                    const finalPref = apiProfile?.prefectures || profile?.prefectures;
+
                     actressAggregation.set(actressId, {
                         id: actressId,
                         name: displayName,
-                        ruby: profile?.ruby || '',
-                        bust: enrich?.custom_bust || profile?.bust,
-                        cup: profile?.cup,
-                        waist: enrich?.custom_waist || profile?.waist,
-                        hip: enrich?.custom_hip || profile?.hip,
-                        height: profile?.height,
-                        birthday: profile?.birthday,
-                        hobby: enrich?.custom_bio || profile?.hobby,
-                        prefectures: profile?.prefectures,
+                        ruby: finalRuby,
+                        bust: finalBust?.toString(),
+                        cup: apiProfile?.cup || profile?.cup,
+                        waist: finalWaist?.toString(),
+                        hip: finalHip?.toString(),
+                        height: finalHeight?.toString(),
+                        birthday: finalBirthday,
+                        hobby: finalHobby,
+                        prefectures: finalPref,
+                        imageURL: apiProfile?.imageURL,
                         videos: [],
                         videoCount: 0
                     });

@@ -31,10 +31,7 @@ export const Navigation = () => {
                             <Home size={18} />
                             <span>ホーム</span>
                         </Link>
-                        <Link href="/ranking" className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors text-sm font-medium">
-                            <Trophy size={18} />
-                            <span>ランキング</span>
-                        </Link>
+
                     </div>
                 </div>
 
