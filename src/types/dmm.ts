@@ -25,6 +25,7 @@ export interface DmmItem {
     iteminfo?: DmmItemInfo;
     review_count?: number;
     review_average?: number;
+    description?: string; // Generated description
     [key: string]: any;
 }
 

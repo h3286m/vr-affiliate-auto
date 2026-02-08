@@ -301,6 +301,14 @@ async function main() {
     const metadataMap = await fetchMetadataMap(3000);
     const actressProfileMap = await fetchActressProfiles();
 
+    // NEW: Load generated descriptions
+    const DESCRIPTIONS_JSON_PATH = path.join(process.cwd(), 'src', 'data', 'descriptions.json');
+    let descriptionMap: { [key: string]: string } = {};
+    if (fs.existsSync(DESCRIPTIONS_JSON_PATH)) {
+        descriptionMap = JSON.parse(fs.readFileSync(DESCRIPTIONS_JSON_PATH, 'utf-8'));
+        console.log(`Loaded ${Object.keys(descriptionMap).length} descriptions.`);
+    }
+
 
 
 
@@ -376,6 +384,7 @@ async function main() {
             floor_code: 'videoa',
             review_count: countVal,
             review_average: scoreVal,
+            description: descriptionMap[cid] || undefined
         };
 
         allProducts.push(product);

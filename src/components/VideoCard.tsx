@@ -182,7 +182,7 @@ export default function VideoCard({ item, hideVideo = false, hideDescription = f
                         作品紹介
                     </div>
                     <div className="text-gray-400">
-                        <p>{item.headline || item.title}</p>
+                        <p>{item.description || item.headline || item.title}</p>
                     </div>
                 </div>
             )}

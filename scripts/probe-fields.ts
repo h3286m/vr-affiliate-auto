@@ -63,7 +63,25 @@ async function run() {
     // Strategy 1: Keyword = 'VR'
     const vrKeywordItems = await fetchAllItemsDebug(ACTRESS_ID, 'VR');
     console.log(`Strategy 1 (keyword='VR') Total: ${vrKeywordItems.length}`);
-    vrKeywordItems.forEach(i => {
+    vrKeywordItems.forEach((i, idx) => {
+        if (idx === 0) {
+            console.log("\n--- Item Fields Check ---");
+            Object.keys(i).forEach(key => {
+                const val = (i as any)[key];
+                if (typeof val === 'string') {
+                    console.log(`- ${key}: ${val.substring(0, 50)}${val.length > 50 ? '...' : ''}`);
+                } else {
+                    console.log(`- ${key}: (type: ${typeof val})`);
+                }
+            });
+            if (i.iteminfo) {
+                console.log("\n--- iteminfo Fields ---");
+                Object.keys(i.iteminfo).forEach(key => {
+                    console.log(`- iteminfo.${key}: (type: ${typeof (i.iteminfo as any)[key]})`);
+                });
+            }
+            console.log("-------------------------\n");
+        }
         if (i.title.includes('VR')) process.stdout.write('.');
         else console.log(`\n[Warn] Item returned by 'VR' keyword but no 'VR' in title: ${i.title}`);
     });
