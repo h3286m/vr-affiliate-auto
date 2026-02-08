@@ -54,35 +54,36 @@ export default async function ActressPage(props: { params: Promise<{ id: string 
         notFound();
     }
 
-    // Use data from local JSON and sort videos
-    const videos = [...(actress.videos || [])].sort((a, b) => {
-        // Categorize by actress count
-        const getPriority = (item: DmmItem) => {
-            const count = item.iteminfo?.actress?.length || 0;
-            if (count === 1) return 1;    // Single
-            if (count <= 10) return 2;   // Multiple (2-10)
-            return 3;                    // Omnibus (>10)
-        };
+    // Use data from local JSON, filter out Omnibus (>10 actresses), and sort
+    const videos = [...(actress.videos || [])]
+        .filter(item => (item.iteminfo?.actress?.length || 0) <= 10) // Exclude Omnibus
+        .sort((a, b) => {
+            // Categorize by actress count
+            const getPriority = (item: DmmItem) => {
+                const count = item.iteminfo?.actress?.length || 0;
+                if (count === 1) return 1;    // Single
+                return 2;                    // Multiple (2-10)
+            };
 
-        const priorityA = getPriority(a);
-        const priorityB = getPriority(b);
+            const priorityA = getPriority(a);
+            const priorityB = getPriority(b);
 
-        // 1. Category Priority (Ascending: 1 > 2 > 3)
-        if (priorityA !== priorityB) return priorityA - priorityB;
+            // 1. Category Priority (Ascending: 1 > 2)
+            if (priorityA !== priorityB) return priorityA - priorityB;
 
-        // 2. Review Count (Desc)
-        const countA = a.review_count || 0;
-        const countB = b.review_count || 0;
-        if (countB !== countA) return countB - countA;
+            // 2. Review Count (Desc)
+            const countA = a.review_count || 0;
+            const countB = b.review_count || 0;
+            if (countB !== countA) return countB - countA;
 
-        // 3. Review Average / Score (Desc)
-        const scoreA = a.review_average || 0;
-        const scoreB = b.review_average || 0;
-        if (scoreB !== scoreA) return scoreB - scoreA;
+            // 3. Review Average / Score (Desc)
+            const scoreA = a.review_average || 0;
+            const scoreB = b.review_average || 0;
+            if (scoreB !== scoreA) return scoreB - scoreA;
 
-        // 4. Release Date (Desc)
-        return (b.date || '').localeCompare(a.date || '');
-    });
+            // 4. Release Date (Desc)
+            return (b.date || '').localeCompare(a.date || '');
+        });
     const actressName = actress.name;
     const profileImage = actress.imageURL?.large || actress.imageURL?.small || null;
 
