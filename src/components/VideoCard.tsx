@@ -78,6 +78,34 @@ export default function VideoCard({ item, hideVideo = false, hideDescription = f
 
 
 
+            {/* Ratings */}
+            {(item.review_average !== undefined || item.review_count !== undefined) && (
+                <div className="mb-4 flex items-center gap-3">
+                    <div className="flex items-center text-[#ff8f00]">
+                        {[1, 2, 3, 4, 5].map((star) => {
+                            const rating = item.review_average || 0;
+                            // Full star if rating >= star
+                            // Half star if rating >= star - 0.5 (optional, but let's stick to full/empty for now for simplicity or use a specific char)
+                            if (rating >= star) {
+                                return <span key={star} className="text-xl">★</span>;
+                            } else if (rating >= star - 0.5) {
+                                return <span key={star} className="text-xl">☆</span>; // Could use half star icon if available
+                            } else {
+                                return <span key={star} className="text-xl text-gray-600">☆</span>;
+                            }
+                        })}
+                        <span className="ml-2 text-lg font-bold text-white">
+                            {item.review_average ? Number(item.review_average).toFixed(1) : '0.0'}
+                        </span>
+                    </div>
+                    {item.review_count !== undefined && (
+                        <span className="text-sm text-gray-400">
+                            ({item.review_count.toLocaleString()} レビュー)
+                        </span>
+                    )}
+                </div>
+            )}
+
             {/* Video Player Area */}
             {!hideVideo && hasSample && (
                 <div className="mb-6 w-full bg-black rounded-lg overflow-hidden shadow-lg relative" style={{ paddingTop: '56.25%' }}>

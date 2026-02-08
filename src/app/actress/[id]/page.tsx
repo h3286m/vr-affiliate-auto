@@ -54,8 +54,21 @@ export default async function ActressPage(props: { params: Promise<{ id: string 
         notFound();
     }
 
-    // Use data from local JSON
-    const videos = actress.videos || [];
+    // Use data from local JSON and sort videos
+    const videos = [...(actress.videos || [])].sort((a, b) => {
+        // 1. Review Count (Desc)
+        const countA = a.review_count || 0;
+        const countB = b.review_count || 0;
+        if (countB !== countA) return countB - countA;
+
+        // 2. Review Average / Score (Desc)
+        const scoreA = a.review_average || 0;
+        const scoreB = b.review_average || 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+
+        // 3. Release Date (Desc)
+        return (b.date || '').localeCompare(a.date || '');
+    });
     const actressName = actress.name;
     const profileImage = actress.imageURL?.large || actress.imageURL?.small || null;
 
