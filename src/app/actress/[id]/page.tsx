@@ -32,6 +32,8 @@ const sortedActresses = [...actressesData].sort((a, b) => {
     return (a.ruby || '').localeCompare(b.ruby || '', 'ja');
 });
 
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
     // Generate paths for ALL actresses in our local data
     return actressesData.map((actress) => ({

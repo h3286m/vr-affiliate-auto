@@ -4,9 +4,80 @@ import path from 'path';
 
 const PRODUCTS_JSON_PATH = path.join(process.cwd(), 'src/data/products.json');
 const DESCRIPTIONS_JSON_PATH = path.join(process.cwd(), 'src/data/descriptions.json');
+const HQVR_DATA_PATH = path.join(process.cwd(), 'src/data/HQVR_data.csv');
+const ACTRESS_DATA_PATH = path.join(process.cwd(), 'src/data/actress_data_all.csv');
 
 interface DescriptionData {
     [contentId: string]: string;
+}
+
+interface ActressMetadata {
+    height?: string;
+    cup?: string;
+    bust?: string;
+}
+
+function loadHqvrIntro(): Map<string, string> {
+    const introMap = new Map<string, string>();
+    try {
+        if (fs.existsSync(HQVR_DATA_PATH)) {
+            const content = fs.readFileSync(HQVR_DATA_PATH, 'utf-8');
+            const lines = content.split('\n');
+            const headers = lines[0].split(',');
+            const cidIdx = headers.findIndex(h => h.includes('商品ID'));
+            const introIdx = headers.findIndex(h => h === '商品紹介');
+
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length < headers.length) continue;
+                const cid = parts[cidIdx]?.trim();
+                const intro = parts[introIdx]?.replace(/^"|"$/g, '').trim();
+                if (cid && intro) {
+                    introMap.set(cid, intro);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error loading HQVR data:', e);
+    }
+    return introMap;
+}
+
+function loadActressMetadata(): Map<string, ActressMetadata> {
+    const metaMap = new Map<string, ActressMetadata>();
+    try {
+        if (fs.existsSync(ACTRESS_DATA_PATH)) {
+            const content = fs.readFileSync(ACTRESS_DATA_PATH, 'utf-8');
+            const lines = content.split('\n');
+            const headers = lines[0].split(',');
+
+            const nameIdx = headers.findIndex(h => h === 'name');
+            const cupIdx = headers.findIndex(h => h === 'cup');
+            const heightIdx = headers.findIndex(h => h === 'height');
+            const bustIdx = headers.findIndex(h => h === 'bust');
+
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length < headers.length) continue;
+
+                const name = parts[nameIdx]?.replace(/"/g, '').trim();
+                const cup = parts[cupIdx]?.replace(/"/g, '').trim();
+                const height = parts[heightIdx]?.replace(/"/g, '').trim();
+                const bust = parts[bustIdx]?.replace(/"/g, '').trim();
+
+                if (name && (cup || height)) {
+                    metaMap.set(name, {
+                        cup: cup && cup !== '-' ? cup : undefined,
+                        height: height && height !== '0' ? height : undefined,
+                        bust: bust && bust !== '0' ? bust : undefined
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error loading actress metadata:', e);
+    }
+    return metaMap;
 }
 
 function generate() {
@@ -15,122 +86,95 @@ function generate() {
         return;
     }
 
+    const hqvrIntros = loadHqvrIntro();
+    const actressMeta = loadActressMetadata();
     const products = JSON.parse(fs.readFileSync(PRODUCTS_JSON_PATH, 'utf-8'));
     const descriptions: DescriptionData = {};
 
-    console.log(`Generating descriptions for ${products.length} products...`);
+    console.log(`Generating high-quality descriptions for ${products.length} products...`);
 
-    products.forEach((item: any, idx: number) => {
-        const fullTitle = item.title.replace(/【VR】/g, '').replace(/\[VR\]/g, '').trim();
+    const roles = ['妹', '人妻', 'JK', '女子高生', 'OL', '義母', '従姉妹', '幼馴染', '義理の母', '未亡人', '先生', 'ナース', '清楚', 'ギャル', 'お姉さん', '母'];
+    const actions = ['中出し', '調教', '潮吹き', 'フェラ', '騎乗位', 'バック', '駅弁', 'イラマ', '絶頂', '連続絶頂', '強制', '愛液', '精液', '生パコ', '生中出し'];
+    const vrKeywords = ['POV', '主観', '一人称', '至近距離', '密着', '8K', '超高精細', '実在感', '没入感'];
+
+    products.forEach((item: any) => {
+        const contentId = item.content_id;
+        const rawTitle = item.title;
+        const normalizedTitle = rawTitle.replace(/【VR】/g, '').replace(/\[VR\]/g, '').trim();
         const actresses = item.iteminfo?.actress?.map((a: any) => a.name) || [];
-        const genres = item.iteminfo?.genre?.map((g: any) => g.name) || [];
         const maker = item.iteminfo?.maker?.[0]?.name || '';
 
-        // Extract a "hook" from the title (usually the first sentence or first 40 chars)
-        let titleHook = fullTitle.split(/[。！!？?]/)[0].substring(0, 50).trim();
-        if (titleHook.length < 10 && fullTitle.length > 10) {
-            titleHook = fullTitle.substring(0, 40).trim();
-        }
+        // 1. Role/Action Semantic Extraction
+        const foundRoles = roles.filter(r => normalizedTitle.includes(r));
+        const foundActions = actions.filter(a => normalizedTitle.includes(a));
 
-        const introTemplates = [
-            `${actresses.length > 0 ? actresses.join('・') + 'の' : ''}最新作！`, `${maker}が放つ、注目のVR作品！`, `待望の新作！没入感抜群のVRタイトルが登場！`,
-            `大人気シリーズ最新作が登場！`, `${actresses.length > 0 ? actresses[0] : '美少女'}と過ごす濃密な時間。`, `ファン待望！最高峰のビジュアルで贈るVR大作！`,
-            `ついに登場！VR専用ならではの密着体験。`, `話題のVRタイトル。この臨場感、ぜひ体感してください。`, `${maker}渾身の最新作をその目に！`,
-            `${actresses.length > 0 ? actresses[0] : '憧れの彼女'}と一緒に過ごす夢の時間。`, `これぞVR！興奮必至の最新作。`, `解禁！これまでにない至近距離の快楽を。`,
-            `話題沸騰！驚異の没入感で贈るVR体験！`, `見逃し厳禁！最高にエキサイティングな新作。`, `夢のような設定！VRならすべてが現実に。`,
-            `${maker}が贈る、究極のシチュエーション。`, `最先端のVR技術を結集！驚きの臨場感。`,
-            `ドキドキが止まらない！最高にポップなVR作品。`, `テンション爆上げ！VRならではの刺激的な展開。`,
-            `圧倒的支持！ファンを虜にする最高傑作！`, `今すぐ体感。これぞ次世代のエンターテインメント。`, `${maker}のこだわりが詰まった最高級VR。`
-        ];
+        // 2. Official Intro Fallback
+        const officialIntro = hqvrIntros.get(contentId) || "";
 
-        const bodyTemplates = [
-            `${titleHook}という、VRならではの没入感を活かしたシチュエーション。`,
-            `8KVRの高精細映像で綴られる${titleHook}。彼女の体温や吐息までもが至近距離で伝わります。`,
-            `${titleHook}。まるでそこにいるかのような感覚、圧倒的な臨場感に驚くこと間違いなし。`,
-            `細部までこだわり抜かれた映像美。${titleHook}という刺激的な体験が待っています。`,
-            `主観視点で楽しむ極上のひととき。${titleHook}をテーマにした超密着体験。`,
-            `手の届きそうな距離で繰り広げられる${titleHook}。夢のような光景が視界いっぱいに広がります。`,
-            `VR専用設計の没入感。360度どこを見ても${titleHook}の世界が広がります。`,
-            `高画質ならではのリアリティ。${titleHook}というシチュエーションを余すことなく再現。`,
-            `驚きのパノラマビュー。${titleHook}を特等席で堪能できる至福の時間。`,
-            `主観視点ならではの官能。${titleHook}の緊張感と快感がダイレクトに伝わります。`
-        ];
-
-        const punchTemplates = [
-            `興奮が押し寄せる究極のVR体験！`, `これぞVRの真骨頂！至福のひとときを。`, `日常を忘れるほどの圧倒的な没入感。`,
-            `あなたを夢中にさせる、極上のエンタメ！`, `視覚と聴覚を刺激する、最高のファンタジー。`,
-            `理屈抜きで楽しめる、最上級の興奮！`, `今までにない衝撃。驚きの連続を体感せよ！`, `最高にハッピーなVRライフをあなたに。`,
-            `ドキドキの加速が止まらない、珠玉のひととき！`, `心ゆくまで堪能できる、至高のシチュエーション。`, `圧倒的な満足感！今すぐチェックするしかない！`,
-            `驚きを超えた感動！これぞVRマジック。`, `本能を刺激する、新次元の刺激を。`, `一度味わえば病みつき、魔力のような没入感。`,
-            `興奮度120%！アドレナリンが止まらない展開！`
-        ];
-
-        // Ensure variety by picking based on idx with a larger prime multiplier for shuffle effect
-        const shuffleIdx = (arr: any[], multiplier: number) => {
-            return (idx * multiplier + Math.floor(idx / 100)) % arr.length;
-        };
-
-        const intro = introTemplates[shuffleIdx(introTemplates, 7)];
-        let body = bodyTemplates[shuffleIdx(bodyTemplates, 13)];
-        let punch = punchTemplates[shuffleIdx(punchTemplates, 19)];
-
-        // Specialized genre logic
-        if (genres.includes('痴女')) {
-            const chiIntro = [
-                `大胆な痴女プレイに翻弄される至近距離の快楽。`, `攻めまくる彼女の誘惑！理性が崩壊する痴女体験。`,
-                `予測不能な痴女シチュエーションに、ドキドキが加速！`, `恥じらいを捨てた彼女の豹変。最高に刺激的な痴女VR！`
-            ][idx % 4];
-            body = `${chiIntro}${titleHook}を8KVRのド迫力で体感。彼女の奔放な姿がガッツリ伝わります。`;
-        } else if (genres.includes('ハーレム') || genres.includes('3P・4P')) {
-            const harIntro = [
-                `美女に囲まれる夢のハーレム体験。`, `どこを見ても美少女だらけの贅沢な空間！`,
-                `豪華出演陣！理屈抜きで楽しめる絶頂ハーレム。`
-            ][idx % 3];
-            body = `${harIntro}${titleHook}というVRならではの360度シチュエーションに、息つく暇もありません。`;
-        } else if (genres.includes('人妻・主婦')) {
-            const hitIntro = [
-                `しっとりとした色香漂う人妻との禁断の密会。`, `VRだからこそ伝わる、人妻ならではの柔らかな質感。`,
-                `大人の色香に浸る究極のVR体験。`
-            ][idx % 3];
-            body = `${hitIntro}${titleHook}を8KVRの高画質で。彼女の繊細な吐息までもが目の前に。`;
-        }
-
-        // --- STRICT DUPLICATION CHECK ---
-        const components = [intro, body, punch];
-        let finalDesc = "";
-        const seenPhrases = new Set<string>();
-
-        for (const comp of components) {
-            // Simplified repetition check: if a sentence or main phrase of the component already exists in finalDesc, skip it.
-            // Split by punctuation
-            const sentences = comp.split(/[。！!？?]/).filter(s => s.trim().length > 0);
-            for (const s of sentences) {
-                const trimmed = s.trim();
-                if (!seenPhrases.has(trimmed)) {
-                    finalDesc += trimmed + (trimmed.match(/[。！!？?]$/) ? "" : "！");
-                    seenPhrases.add(trimmed);
+        // 3. Physical Data Integration
+        let physicalData = "";
+        for (const name of actresses) {
+            const meta = actressMeta.get(name);
+            if (meta) {
+                if (meta.height && meta.cup) {
+                    physicalData = `${meta.cup}カップの重量感と身長${meta.height}cmの抜群のスタイルを至近距離で。`;
+                    break;
+                } else if (meta.cup) {
+                    physicalData = `迫りくる${meta.cup}カップの豊満なボディをVRで独占。`;
+                    break;
                 }
             }
         }
 
-        // --- LENGTH ADJUSTMENT ---
-        if (finalDesc.length > 155) {
-            finalDesc = finalDesc.substring(0, 150) + '...';
-        } else if (finalDesc.length < 100) {
-            const extraPunchTemplates = [
-                `今すぐチェック！`, `最高級の興奮！`, `必見の最新作！`, `圧倒的満足感！`, `極上のひととき！`, `驚きの臨場感！`,
-                `ファン必見！`, `最上級の快楽！`, `今すぐ体感せよ！`, `究極の没入体験！`
-            ];
-            for (const ep of extraPunchTemplates) {
-                if (!seenPhrases.has(ep) && finalDesc.length < 130) {
-                    finalDesc += ep;
-                    seenPhrases.add(ep);
-                }
-            }
-            if (finalDesc.length > 155) finalDesc = finalDesc.substring(0, 155);
+        // 4. VR Immersion Description
+        let immersionText = "";
+        if (rawTitle.includes('8K') || rawTitle.includes('POV')) {
+            immersionText = "超高精細な8KVR映像が、圧倒的な視覚的臨場感をもたらします。あたかもそこに彼女がいるかのような錯覚。";
+        } else {
+            immersionText = "VRならではの一人称視点で、手を伸ばせば届きそうな距離感を体感してください。";
         }
 
-        descriptions[item.content_id] = finalDesc;
+        // 5. Semantic Prefix
+        let semanticPrefix = "";
+        if (foundRoles.length > 0 && foundActions.length > 0) {
+            semanticPrefix = `憧れの${foundRoles[0]}との濃厚な${foundActions[0]}をVRで体感！`;
+        } else if (foundRoles.length > 0) {
+            semanticPrefix = `目の前に広がる${foundRoles[0]}との禁断のシチュエーション。`;
+        } else if (foundActions.length > 0) {
+            semanticPrefix = `至近距離で繰り広げられる過激な${foundActions[0]}に理性が崩壊。`;
+        }
+
+        // Final Assembly Logic
+        // We prioritize: Official Intro (Cleaned) + Physical Data + Immersion
+        // If official is too long, we truncate or pick parts.
+
+        let coreDesc = officialIntro.length > 20 ? officialIntro.split(/[。！!？?]/)[0] + "！" : semanticPrefix;
+        if (!coreDesc) coreDesc = "極上のVR体験をお届けします。";
+
+        const intro = actresses.length > 0 ? `${actresses.join('・')}出演。` : `${maker}のVR最新作。`;
+
+        let finalDesc = `${intro}${coreDesc}${physicalData}${immersionText}`;
+
+        // Deduplication & Truncation
+        const seen = new Set<string>();
+        const parts = finalDesc.split(/([。！!？?])/).filter(p => p.length > 0);
+        let result = "";
+        for (let i = 0; i < parts.length; i++) {
+            const p = parts[i];
+            if (p.match(/[。！!？?]/)) continue;
+            const term = p.trim();
+            const punctuation = (i + 1 < parts.length && parts[i + 1].match(/[。！!？?]/)) ? parts[i + 1] : "！";
+            if (term && !seen.has(term)) {
+                result += term + punctuation;
+                seen.add(term);
+            }
+        }
+
+        // Adjustment
+        if (result.length > 155) result = result.substring(0, 150) + "...";
+        if (result.length < 80) result += "VRファン必見の、リアリティを追求した作品です！";
+
+        descriptions[contentId] = result;
     });
 
     fs.writeFileSync(DESCRIPTIONS_JSON_PATH, JSON.stringify(descriptions, null, 2));

@@ -321,7 +321,10 @@ async function main() {
     const prodRecords = parse(prodContent, {
         columns: false,
         from_line: 2,
-        skip_empty_lines: true
+        skip_empty_lines: true,
+        relax_quotes: true,
+        relax_column_count: true,
+        escape: '"'
     });
 
     const allProducts: DmmItem[] = [];
@@ -384,7 +387,7 @@ async function main() {
             floor_code: 'videoa',
             review_count: countVal,
             review_average: scoreVal,
-            description: descriptionMap[cid] || undefined
+            description: row[10] || descriptionMap[cid] || undefined
         };
 
         allProducts.push(product);
