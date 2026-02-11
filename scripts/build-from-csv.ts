@@ -103,7 +103,8 @@ async function fetchMetadataMap(limit: number = 3000): Promise<Map<string, any>>
                     }
                     metadataMap.set(item.content_id, {
                         sampleMovieURL: item.sampleMovieURL,
-                        iteminfo: item.iteminfo // Store genre/maker info
+                        iteminfo: item.iteminfo, // Store genre/maker info
+                        review: item.review // Store review info
                     });
                 }
             }
@@ -340,11 +341,17 @@ async function main() {
         }
 
         const date = dateRaw ? dateRaw.split(' ')[0].replace(/\//g, '-') : '';
-        const scoreVal = scoreRaw ? parseFloat(scoreRaw) : 0;
-        const countVal = countRaw ? parseInt(countRaw) : 0;
+        let scoreVal = scoreRaw ? parseFloat(scoreRaw) : 0;
+        let countVal = countRaw ? parseInt(countRaw) : 0;
 
         // Merge API Metadata (Sample URL & Genre)
         const apiData = metadataMap.get(cid);
+
+        // Fallback to API data if CSV is 0 (source is empty)
+        if (scoreVal === 0 && countVal === 0 && apiData?.review) {
+            scoreVal = apiData.review.average ? parseFloat(apiData.review.average) : 0;
+            countVal = apiData.review.count || 0;
+        }
 
         // Check for Omnibus/Compilation Keywords in Title (Primary safeguard)
         const isOmnibusByTitle = OMNIBUS_KEYWORDS.some(k => title.includes(k));

@@ -83,13 +83,21 @@ export default function Home() {
                       </h3>
 
                       {featuredPickup.iteminfo?.actress && featuredPickup.iteminfo.actress.length > 0 && (
-                        <p className="text-xs sm:text-sm text-slate-400 flex flex-wrap gap-1">
+                        <p className="text-xs sm:text-sm text-slate-400 flex flex-wrap gap-1 mb-2">
                           {featuredPickup.iteminfo.actress.map((actress, index) => (
                             <span key={index} className="bg-slate-800 px-2 py-0.5 rounded text-slate-300">
                               {actress.name}
                             </span>
                           ))}
                         </p>
+                      )}
+
+                      {/* Review Score */}
+                      {featuredPickup.review_average !== undefined && featuredPickup.review_average > 0 && (
+                        <div className="flex items-center text-pink-500 text-sm font-bold">
+                          <span className="mr-1">★</span>
+                          <span>{Number(featuredPickup.review_average).toFixed(1)}</span>
+                        </div>
                       )}
                     </div>
                   </a>

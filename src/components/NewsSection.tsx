@@ -22,7 +22,12 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ items }) => {
                             <a href={item.affiliateURL} target="_blank" rel="noopener noreferrer" className="block flex-1 group">
                                 <div className="flex items-baseline">
                                     <span className="text-xs font-mono text-blue-400 mr-3 shrink-0">{new Date(item.date).toLocaleDateString('ja-JP')}</span>
-                                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors line-clamp-1">{item.title}</span>
+                                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors line-clamp-1 flex-1">{item.title}</span>
+                                    {item.review_average !== undefined && item.review_average > 0 && (
+                                        <span className="ml-2 text-xs font-bold text-pink-500 whitespace-nowrap">
+                                            ★ {Number(item.review_average).toFixed(1)}
+                                        </span>
+                                    )}
                                 </div>
                             </a>
                         </div>
