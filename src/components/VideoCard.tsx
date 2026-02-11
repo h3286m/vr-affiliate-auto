@@ -7,10 +7,9 @@ import { DmmItem } from '@/types/dmm';
 interface VideoCardProps {
     item: DmmItem;
     hideVideo?: boolean;
-    hideDescription?: boolean;
 }
 
-export default function VideoCard({ item, hideVideo = false, hideDescription = false }: VideoCardProps) {
+export default function VideoCard({ item, hideVideo = false }: VideoCardProps) {
     const [videoError, setVideoError] = useState(false);
     const [imageError, setImageError] = useState(false);
 
