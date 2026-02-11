@@ -311,60 +311,37 @@ async function main() {
         process.exit(1);
     }
     const prodContent = fs.readFileSync(PRODUCTS_CSV_PATH, 'utf-8');
-    const lines = prodContent.split('\n');
+    const records = parse(prodContent, {
+        columns: true, // Use headers
+        skip_empty_lines: true,
+        relax_column_count: true // Handle the trailing empty column if needed
+    });
     const allProducts: DmmItem[] = [];
     const actressAggregation = new Map<string, LocalActress>();
 
-    console.log(`Processing ${lines.length - 1} product rows...`);
+    console.log(`Processing ${records.length} product rows...`);
 
-    for (let i = 1; i < lines.length; i++) {
-        const rawLine = lines[i].trim();
-        if (!rawLine) continue;
+    let currentRow = 0;
+    for (const record of records as any[]) {
+        currentRow++;
+        const cid = record['商品ID(CID)'];
+        const title = record['タイトル'];
+        const dateRaw = record['発売日'];
+        const actNamesRaw = record['出演女優名'];
+        const scoreRaw = record['評価'];
+        const countRaw = record['レビュー数'];
+        const affUrl = record['商品URL'];
+        const imgUrl = record['画像URL'];
 
-        // Manual Robust Parsing for unquoted commas
-        const row = rawLine.split(',');
-        if (row.length < 5) continue;
-
-        const cid = row[0];
-
-        // Find Date index (YYYY-MM-DD)
-        const dateIndex = row.findIndex((col, idx) => idx > 0 && /\d{4}-\d{2}-\d{2}/.test(col));
-        if (dateIndex === -1) {
-            continue;
-        }
-
-        const title = row.slice(1, dateIndex).join(',');
-        const dateRaw = row[dateIndex];
-
-        // Find Affiliate URL index (al.fanza.co.jp)
-        const affUrlIndex = row.findIndex((col, idx) => idx > dateIndex && col.includes('al.fanza.co.jp'));
-
-        let scoreVal = 0;
-        let countVal = 0;
-        let affUrl = '';
-        let imgUrl = '';
-        let actNamesRaw = '';
-        let description = '';
-
-        if (affUrlIndex !== -1) {
-            affUrl = row[affUrlIndex];
-            imgUrl = row[affUrlIndex + 1] || '';
-            scoreVal = row[dateIndex + 1] ? parseFloat(row[dateIndex + 1]) : 0;
-            countVal = row[dateIndex + 2] ? parseInt(row[dateIndex + 2]) : 0;
-            // Actress names are between Count (dateIndex + 2) and AffiliateURL
-            actNamesRaw = row.slice(dateIndex + 3, affUrlIndex).join(',');
-            // Description is at columns after ImgURL
-            description = row.slice(affUrlIndex + 2).join(',').trim();
-        } else {
-            // Fallback for lines without URL
-            actNamesRaw = row.slice(dateIndex + 3).join(',');
-        }
+        if (!cid || !title) continue;
 
         if (!title.includes('【VR】') && !cid.startsWith('vr')) {
             if (!title.includes('【VR】')) continue;
         }
 
         const date = dateRaw ? dateRaw.split(' ')[0].replace(/\//g, '-') : '';
+        const scoreVal = scoreRaw ? parseFloat(scoreRaw) : 0;
+        const countVal = countRaw ? parseInt(countRaw) : 0;
 
         // Merge API Metadata (Sample URL & Genre)
         const apiData = metadataMap.get(cid);
@@ -407,8 +384,8 @@ async function main() {
         if (actNamesRaw) {
             // Filter out purely numeric strings (IDs) and trim
             // ALSO filter out strings that are too long or contain title markers to avoid leaks
-            const rawNames = actNamesRaw.split(/,|、/).map((s: string) => s.trim())
-                .filter(s => {
+            const rawNames = (actNamesRaw || '').split(/,|、/).map((s: string) => s.trim())
+                .filter((s: string) => {
                     return s &&
                         isNaN(Number(s)) &&
                         s.length < 40 &&
@@ -466,7 +443,7 @@ async function main() {
                     entry.videoCount++;
                 }
 
-                if (i < 5) console.log(`DEBUG: Row ${i} actNamesRaw: "${actNamesRaw}" -> rawNames: ${JSON.stringify(rawNames)}`);
+                if (currentRow < 5) console.log(`DEBUG: Row ${currentRow} actNamesRaw: "${actNamesRaw}" -> rawNames: ${JSON.stringify(rawNames)}`);
 
                 // ALSO add to product iteminfo
                 if (!product.iteminfo) product.iteminfo = { actress: [] };
