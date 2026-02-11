@@ -301,13 +301,6 @@ async function main() {
     const metadataMap = await fetchMetadataMap(3000);
     const actressProfileMap = await fetchActressProfiles();
 
-    // NEW: Load generated descriptions
-    const DESCRIPTIONS_JSON_PATH = path.join(process.cwd(), 'src', 'data', 'descriptions.json');
-    let descriptionMap: { [key: string]: string } = {};
-    if (fs.existsSync(DESCRIPTIONS_JSON_PATH)) {
-        descriptionMap = JSON.parse(fs.readFileSync(DESCRIPTIONS_JSON_PATH, 'utf-8'));
-        console.log(`Loaded ${Object.keys(descriptionMap).length} descriptions.`);
-    }
 
 
 
@@ -318,31 +311,54 @@ async function main() {
         process.exit(1);
     }
     const prodContent = fs.readFileSync(PRODUCTS_CSV_PATH, 'utf-8');
-    const prodRecords = parse(prodContent, {
-        columns: false,
-        from_line: 2,
-        skip_empty_lines: true,
-        relax_quotes: true,
-        relax_column_count: true,
-        escape: '"'
-    });
-
+    const lines = prodContent.split('\n');
     const allProducts: DmmItem[] = [];
     const actressAggregation = new Map<string, LocalActress>();
 
-    console.log(`Processing ${prodRecords.length} product rows...`);
+    console.log(`Processing ${lines.length - 1} product rows...`);
 
-    for (const row of prodRecords) {
-        if (row.length < 8) continue;
+    for (let i = 1; i < lines.length; i++) {
+        const rawLine = lines[i].trim();
+        if (!rawLine) continue;
+
+        // Manual Robust Parsing for unquoted commas
+        const row = rawLine.split(',');
+        if (row.length < 5) continue;
 
         const cid = row[0];
-        const title = row[1];
-        const dateRaw = row[2];
-        const actNamesRaw = row[3];
-        const scoreVal = row[5] ? parseFloat(row[5]) : 0;
-        const countVal = row[6] ? parseInt(row[6]) : 0;
-        const affUrl = row[7];
-        const imgUrl = row[8];
+
+        // Find Date index (YYYY-MM-DD)
+        const dateIndex = row.findIndex((col, idx) => idx > 0 && /\d{4}-\d{2}-\d{2}/.test(col));
+        if (dateIndex === -1) {
+            continue;
+        }
+
+        const title = row.slice(1, dateIndex).join(',');
+        const dateRaw = row[dateIndex];
+
+        // Find Affiliate URL index (al.fanza.co.jp)
+        const affUrlIndex = row.findIndex((col, idx) => idx > dateIndex && col.includes('al.fanza.co.jp'));
+
+        let scoreVal = 0;
+        let countVal = 0;
+        let affUrl = '';
+        let imgUrl = '';
+        let actNamesRaw = '';
+        let description = '';
+
+        if (affUrlIndex !== -1) {
+            affUrl = row[affUrlIndex];
+            imgUrl = row[affUrlIndex + 1] || '';
+            scoreVal = row[dateIndex + 1] ? parseFloat(row[dateIndex + 1]) : 0;
+            countVal = row[dateIndex + 2] ? parseInt(row[dateIndex + 2]) : 0;
+            // Actress names are between Count (dateIndex + 2) and AffiliateURL
+            actNamesRaw = row.slice(dateIndex + 3, affUrlIndex).join(',');
+            // Description is at columns after ImgURL
+            description = row.slice(affUrlIndex + 2).join(',').trim();
+        } else {
+            // Fallback for lines without URL
+            actNamesRaw = row.slice(dateIndex + 3).join(',');
+        }
 
         if (!title.includes('【VR】') && !cid.startsWith('vr')) {
             if (!title.includes('【VR】')) continue;
@@ -355,18 +371,12 @@ async function main() {
 
         // Check for Omnibus/Compilation Keywords in Title (Primary safeguard)
         const isOmnibusByTitle = OMNIBUS_KEYWORDS.some(k => title.includes(k));
-        if (isOmnibusByTitle) {
-            // console.log(`[Omnibus Keyword Filter] Excluded ${cid} ${title}`);
-            continue;
-        }
+        if (isOmnibusByTitle) continue;
 
         // Check for Omnibus/Compilation Genres (API-based)
         if (apiData?.iteminfo?.genre) {
             const hasOmnibus = apiData.iteminfo.genre.some((g: any) => OMNIBUS_GENRE_IDS.includes(g.id));
-            if (hasOmnibus) {
-                // console.log(`[Omnibus Genre Filter] Excluded ${cid} ${title}`);
-                continue;
-            }
+            if (hasOmnibus) continue;
         }
 
         const product: DmmItem = {
@@ -381,25 +391,36 @@ async function main() {
                 small: imgUrl ? imgUrl.replace('pl.jpg', 'ps.jpg') : '',
                 large: imgUrl
             },
-            sampleMovieURL: apiData?.sampleMovieURL, // Add sample URL from API
-            iteminfo: apiData?.iteminfo, // Add genre/maker from API
+            sampleMovieURL: apiData?.sampleMovieURL,
+            iteminfo: {
+                ...(apiData?.iteminfo || {}),
+                actress: [] // Will be populated below
+            },
             service_code: 'digital',
             floor_code: 'videoa',
             review_count: countVal,
             review_average: scoreVal,
-            description: row[10] || descriptionMap[cid] || undefined
         };
 
         allProducts.push(product);
 
         if (actNamesRaw) {
-            const rawNames = actNamesRaw.split(/,|、/).map((s: string) => s.trim());
+            // Filter out purely numeric strings (IDs) and trim
+            // ALSO filter out strings that are too long or contain title markers to avoid leaks
+            const rawNames = actNamesRaw.split(/,|、/).map((s: string) => s.trim())
+                .filter(s => {
+                    return s &&
+                        isNaN(Number(s)) &&
+                        s.length < 40 &&
+                        !s.includes('【VR】') &&
+                        !s.includes('http');
+                });
 
             for (const rName of rawNames) {
-                if (!rName) continue;
                 const normalizedName = rName.replace(/（.*?）/g, '').trim();
-                let profile = actressMapByName.get(normalizedName);
+                if (!normalizedName || normalizedName.length < 2) continue;
 
+                let profile = actressMapByName.get(normalizedName);
                 if (!profile && normalizedName !== rName) {
                     profile = actressMapByName.get(rName);
                 }
@@ -410,11 +431,8 @@ async function main() {
 
                 if (!actressAggregation.has(actressId)) {
                     const enrich = enrichmentMap.get(displayName);
-                    // Try to match profile from API Map (Authoritative for Image & Ruby)
                     const apiProfile = actressProfileMap.get(displayName);
 
-                    // Prioritize API data > CSV Data
-                    // If API profile exists, use its Ruby (fixes "Iori Ryoko" vs "Saijo Ruri" issue)
                     const finalRuby = apiProfile?.ruby || profile?.ruby || '';
                     const finalBust = apiProfile?.bust || enrich?.custom_bust || profile?.bust;
                     const finalWaist = apiProfile?.waist || enrich?.custom_waist || profile?.waist;
@@ -446,6 +464,19 @@ async function main() {
                 if (!entry.videos.some(v => v.content_id === cid)) {
                     entry.videos.push(product);
                     entry.videoCount++;
+                }
+
+                if (i < 5) console.log(`DEBUG: Row ${i} actNamesRaw: "${actNamesRaw}" -> rawNames: ${JSON.stringify(rawNames)}`);
+
+                // ALSO add to product iteminfo
+                if (!product.iteminfo) product.iteminfo = { actress: [] };
+                if (!product.iteminfo.actress) product.iteminfo.actress = [];
+                if (!product.iteminfo.actress.some((a: any) => a.id === actressId)) {
+                    product.iteminfo.actress.push({
+                        id: actressId,
+                        name: displayName,
+                        ruby: entry.ruby as any
+                    });
                 }
             }
         }

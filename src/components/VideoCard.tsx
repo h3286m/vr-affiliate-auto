@@ -175,17 +175,6 @@ export default function VideoCard({ item, hideVideo = false, hideDescription = f
                 </a>
             </div>
 
-            {/* Description Box */}
-            {!hideDescription && (
-                <div className="rounded-lg border border-gray-700 bg-gray-900 p-6">
-                    <div className="mb-4 inline-block rounded bg-gray-800 px-3 py-1 text-sm text-gray-300">
-                        作品紹介
-                    </div>
-                    <div className="text-gray-400">
-                        <p>{item.description || item.headline || item.title}</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

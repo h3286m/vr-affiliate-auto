@@ -7,7 +7,7 @@ export interface DmmImageURL {
 export interface DmmItemInfo {
     genre?: { id: number; name: string }[];
     maker?: { id: number; name: string }[];
-    actress?: { id: number; name: string; ruby?: string }[];
+    actress?: { id: number | string; name: string; ruby?: string }[];
     director?: { id: number; name: string }[];
     label?: { id: number; name: string }[];
     series?: { id: number; name: string }[];
