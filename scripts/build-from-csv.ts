@@ -119,7 +119,61 @@ async function fetchMetadataMap(limit: number = 3000): Promise<Map<string, any>>
             break;
         }
     }
-    console.log(`\nFetched metadata for ${metadataMap.size} items.`);
+    console.log(`\nFetched metadata for ${metadataMap.size} items in Pass 1.`);
+    return metadataMap;
+}
+
+/**
+ * Fetch metadata for specific CIDs in batches (Pass 2)
+ */
+async function fetchMetadataInBatches(cids: string[], floor: string): Promise<Map<string, any>> {
+    const metadataMap = new Map<string, any>();
+    const apiId = process.env.DMM_API_ID;
+    const affiliateId = process.env.DMM_AFFILIATE_ID;
+
+    if (!apiId || !affiliateId || cids.length === 0) return metadataMap;
+
+    console.log(`Fetching metadata for ${cids.length} items from floor ${floor} in batches of 10...`);
+
+    for (let i = 0; i < cids.length; i += 10) {
+        const batch = cids.slice(i, i + 10);
+        const cidString = batch.join(',');
+        const url = `https://api.dmm.com/affiliate/v3/ItemList?api_id=${apiId}&affiliate_id=${affiliateId}&site=FANZA&service=digital&floor=${floor}&cid=${cidString}&output=json`;
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn(`[Pass 2] API Error for batch starting with ${batch[0]} (${floor}): ${res.status}`);
+                continue;
+            }
+            const data: any = await res.json();
+            const items = data.result?.items || [];
+
+            for (const item of items) {
+                const dataToSave = {
+                    sampleMovieURL: item.sampleMovieURL,
+                    iteminfo: item.iteminfo,
+                    review: item.review,
+                    floor_code: floor
+                };
+                metadataMap.set(item.content_id, dataToSave);
+            }
+
+            // Incremental Cache Saving (every 100 items - roughly 10 batches)
+            if (i % 100 === 0) {
+                const PRODUCT_METADATA_CACHE_PATH = path.join(process.cwd(), 'src', 'data', 'product_metadata_cache.json');
+                const currentCache = fs.existsSync(PRODUCT_METADATA_CACHE_PATH) ? JSON.parse(fs.readFileSync(PRODUCT_METADATA_CACHE_PATH, 'utf-8')) : {};
+                metadataMap.forEach((v, k) => { currentCache[k] = v; });
+                fs.writeFileSync(PRODUCT_METADATA_CACHE_PATH, JSON.stringify(currentCache, null, 2));
+            }
+
+            process.stdout.write('.');
+            await new Promise(r => setTimeout(r, 200)); // Rate limit
+        } catch (e) {
+            console.error(`Error fetching batch starting with ${batch[0]}:`, e);
+        }
+    }
+    console.log(`\nEnriched ${metadataMap.size} products from ${floor}.`);
     return metadataMap;
 }
 
@@ -140,90 +194,55 @@ interface ApiActressProfile {
     imageURL?: { small?: string; large?: string; };
 }
 
-async function fetchActressProfiles(): Promise<Map<string, ApiActressProfile>> {
-    console.log('Fetching actress profiles from API (with pagination)...');
+async function fetchActressProfilesByNames(names: string[]): Promise<Map<string, ApiActressProfile>> {
+    const profileMap = new Map<string, ApiActressProfile>();
     const apiId = process.env.DMM_API_ID;
     const affiliateId = process.env.DMM_AFFILIATE_ID;
 
-    if (!apiId || !affiliateId) {
-        console.warn("Skipping Actress API fetch: Missing API keys");
-        return new Map();
-    }
+    if (!apiId || !affiliateId || names.length === 0) return profileMap;
 
-    const initials = [
-        'あ', 'い', 'う', 'え', 'お',
-        'か', 'き', 'く', 'け', 'こ',
-        'さ', 'し', 'す', 'せ', 'そ',
-        'た', 'ち', 'つ', 'て', 'と',
-        'な', 'に', 'ぬ', 'ね', 'の',
-        'は', 'ひ', 'ふ', 'へ', 'ほ',
-        'ま', 'み', 'む', 'め', 'も',
-        'や', 'ゆ', 'よ',
-        'ら', 'り', 'る', 'れ', 'ろ',
-        'わ'
-    ];
+    console.log(`Directly fetching profiles for ${names.length} actresses by name...`);
 
-    const profileMap = new Map<string, ApiActressProfile>();
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const url = `https://api.dmm.com/affiliate/v3/ActressSearch?api_id=${apiId}&affiliate_id=${affiliateId}&keyword=${encodeURIComponent(name)}&output=json`;
 
-    for (const initial of initials) {
-        let offset = 1;
-        let fetchedDetail = 0;
-        let totalCount = 0;
-
-        // Loop until we fetch all for this initial
-        while (true) {
-            const hits = 100;
-            const url = `https://api.dmm.com/affiliate/v3/ActressSearch?api_id=${apiId}&affiliate_id=${affiliateId}&initial=${encodeURIComponent(initial)}&hits=${hits}&offset=${offset}&output=json`;
-
-            try {
-                const res = await fetch(url);
-                if (!res.ok) {
-                    console.warn(`Actress API Error for ${initial} offset ${offset}: ${res.status}`);
-                    break;
-                }
-                const data: any = await res.json();
-                const actresses = data.result?.actress || [];
-                totalCount = data.result?.total_count || 0;
-
-                if (actresses.length === 0) break;
-
-                for (const act of actresses) {
-                    // normalize name to trim
-                    const name = act.name.trim();
-                    profileMap.set(name, {
-                        id: act.id,
-                        name: name,
-                        ruby: act.ruby, // API ruby is strict/correct
-                        bust: act.bust,
-                        cup: act.cup,
-                        waist: act.waist,
-                        hip: act.hip,
-                        height: act.height,
-                        birthday: act.birthday,
-                        blood_type: act.blood_type,
-                        hobby: act.hobby,
-                        prefectures: act.prefectures,
-                        imageURL: act.imageURL
-                    });
-                }
-
-                fetchedDetail += actresses.length;
-
-                if (fetchedDetail >= totalCount) break;
-
-                offset += hits;
-
-                // Rate limit slightly
-                await new Promise(r => setTimeout(r, 50));
-
-            } catch (e) {
-                console.error(`Error fetching actress initial ${initial}:`, e);
-                break;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn(`[API Error] ${name}: ${res.status}`);
+                continue;
             }
+            const data: any = await res.json();
+            const actresses = data.result?.actress || [];
+
+            // If found, take the best match (exact name match preferred)
+            const match = actresses.find((a: any) => a.name.trim() === name) || actresses[0];
+
+            if (match) {
+                profileMap.set(name, {
+                    id: match.id,
+                    name: match.name.trim(),
+                    ruby: match.ruby,
+                    bust: match.bust,
+                    cup: match.cup,
+                    waist: match.waist,
+                    hip: match.hip,
+                    height: match.height,
+                    birthday: match.birthday,
+                    blood_type: match.blood_type,
+                    hobby: match.hobby,
+                    prefectures: match.prefectures,
+                    imageURL: match.imageURL
+                });
+            }
+            if (i % 20 === 0) process.stdout.write('.');
+            await new Promise(r => setTimeout(r, 100)); // Respect rate limit
+        } catch (e) {
+            console.error(`Error fetching ${name}:`, e);
         }
-        process.stdout.write(initial); // progress indicator
     }
-    console.log(`\nFetched profiles for ${profileMap.size} unique actresses from API.`);
+    console.log(`\nFetched ${profileMap.size} actress profiles from API.`);
     return profileMap;
 }
 
@@ -286,11 +305,11 @@ async function main() {
 
     // Define Omnibus/Compilation Genre IDs to exclude
     const OMNIBUS_GENRE_IDS = [
-        4025, // Omnibus (オムニバス)
+        4022, // Omnibus (オムニバス) - FIXED from 4025
         5015, // Best/Compilation (ベスト・総集編)
         6003, // Best/Compilation (ベスト・総集編)
         6609, // 10 hours plus (10時間以上作品)
-        6012  // 4 hours plus (4時間以上作品)
+        6179  // 4 hours plus (4時間以上作品) - FIXED from 6012
     ];
 
     // Define Omnibus Keywords to exclude even if Genre ID is missing
@@ -298,34 +317,137 @@ async function main() {
 
 
 
-    // NEW: Fetch Metadata from API to get sample URLs
-    const metadataMap = await fetchMetadataMap(3000);
-    const actressProfileMap = await fetchActressProfiles();
-
-
-
-
-
-    console.log('Loading Products CSV...');
+    // --- PHASE 1: Initial CSV Analysis ---
+    console.log('Analyzing Products CSV...');
     if (!fs.existsSync(PRODUCTS_CSV_PATH)) {
         console.error('Products CSV not found:', PRODUCTS_CSV_PATH);
         process.exit(1);
     }
     const prodContent = fs.readFileSync(PRODUCTS_CSV_PATH, 'utf-8');
     const records = parse(prodContent, {
-        columns: true, // Use headers
+        columns: true,
         skip_empty_lines: true,
-        relax_column_count: true // Handle the trailing empty column if needed
+        relax_column_count: true
     });
+
+    const productRowsByCid = new Map<string, any>();
+    const allActressNamesInProducts = new Set<string>();
+
+    for (const record of records as any[]) {
+        const cid = record['商品ID(CID)'];
+        const title = record['タイトル'];
+        const actNamesRaw = record['出演女優名'];
+
+        if (!cid || !title) continue;
+        if (!title.includes('【VR】') && !cid.toLowerCase().startsWith('vr')) {
+            if (!title.includes('【VR】')) continue;
+        }
+
+        if (!productRowsByCid.has(cid)) {
+            productRowsByCid.set(cid, record);
+        }
+
+        if (actNamesRaw) {
+            const names = actNamesRaw.split(/,|、/).map((s: string) => s.trim());
+            for (const name of names) {
+                if (name && isNaN(Number(name)) && name.length < 40 && !name.includes('【VR】')) {
+                    allActressNamesInProducts.add(name);
+                }
+            }
+        }
+    }
+
+    // Determine which actresses need an API lookup
+    const missingActressNames = Array.from(allActressNamesInProducts).filter(name => !actressMapByName.has(name));
+
+    console.log(`Found ${productRowsByCid.size} unique VR products and ${allActressNamesInProducts.size} unique actress names.`);
+    console.log(`${missingActressNames.length} actresses need API profile lookups.`);
+
+    // --- PHASE 2: API Enrichment ---
+    // Pass 1: Broad keyword search
+    const metadataMap = await fetchMetadataMap(4000);
+
+    // PERSISTENT METADATA CACHE: Load previously fetched one-by-one metadata to avoid re-fetching
+    const PRODUCT_METADATA_CACHE_PATH = path.join(process.cwd(), 'src', 'data', 'product_metadata_cache.json');
+    if (fs.existsSync(PRODUCT_METADATA_CACHE_PATH)) {
+        try {
+            const cachedMetadata = JSON.parse(fs.readFileSync(PRODUCT_METADATA_CACHE_PATH, 'utf-8'));
+            console.log(`Loaded ${Object.keys(cachedMetadata).length} products from metadata cache.`);
+            Object.entries(cachedMetadata).forEach(([cid, val]) => {
+                if (!metadataMap.has(cid)) metadataMap.set(cid, val);
+            });
+        } catch (e) {
+            console.warn('Failed to load product metadata cache:', e);
+        }
+    }
+
+    // Pass 2: Targeted Actress Profiles (by name)
+    // Check cache first
+    const CACHE_ACTRESS_PATH = path.join(process.cwd(), 'src', 'data', 'actress_api_cache.json');
+    let actressApiCache = new Map<string, ApiActressProfile>();
+    if (fs.existsSync(CACHE_ACTRESS_PATH)) {
+        try {
+            const cachedData = JSON.parse(fs.readFileSync(CACHE_ACTRESS_PATH, 'utf-8'));
+            Object.keys(cachedData).forEach(k => actressApiCache.set(k, cachedData[k]));
+            console.log(`Loaded ${actressApiCache.size} actress profiles from cache.`);
+        } catch (e) { }
+    }
+
+    const strictlyMissingActressNames = missingActressNames.filter(name => !actressApiCache.has(name));
+    console.log(`${strictlyMissingActressNames.length} actresses still need API profile lookups.`);
+
+    const newApiProfiles = await fetchActressProfilesByNames(strictlyMissingActressNames);
+    const actressProfileMap = new Map<string, ApiActressProfile>();
+
+    // Merge cache and new profiles
+    actressApiCache.forEach((v, k) => actressProfileMap.set(k, v));
+    newApiProfiles.forEach((v, k) => actressProfileMap.set(k, v));
+
+    // --- PHASE 3: Detailed Item Lookups ---
+    const cidsNeedingMetadata = Array.from(productRowsByCid.keys()).filter(cid => !metadataMap.has(cid));
+    if (cidsNeedingMetadata.length > 0) {
+        const pass2Items = await fetchMetadataInBatches(cidsNeedingMetadata, 'videoa');
+        pass2Items.forEach((v, k) => metadataMap.set(k, v));
+
+        const stillMissing = cidsNeedingMetadata.filter(cid => !metadataMap.has(cid));
+        if (stillMissing.length > 0) {
+            console.log(`${stillMissing.length} items still missing after videoa lookup. Trying videoc...`);
+            const pass3Items = await fetchMetadataInBatches(stillMissing, 'videoc');
+            pass3Items.forEach((v, k) => metadataMap.set(k, v));
+        }
+
+        // Save metadata cache
+        const metadataToCache: any = {};
+        metadataMap.forEach((v, k) => {
+            // Only cache items that have useful data (sample or review) 
+            // and weren't already in the broad search (though broad search is fast anyway)
+            metadataToCache[k] = v;
+        });
+        fs.writeFileSync(PRODUCT_METADATA_CACHE_PATH, JSON.stringify(metadataToCache, null, 2));
+        console.log(`Updated metadata cache with ${metadataMap.size} products.`);
+    }
+
+    console.log(`Final metadata coverage: ${Array.from(productRowsByCid.keys()).filter(cid => metadataMap.has(cid)).length} / ${productRowsByCid.size}`);
+
+    // OPTIONAL: Save API Actress Profiles to a local cache to speed up next runs
+    const CACHE_ACTRESS_FILE = path.join(process.cwd(), 'src', 'data', 'actress_api_cache.json');
+    let existingArtCache: any = {};
+    if (fs.existsSync(CACHE_ACTRESS_FILE)) {
+        try { existingArtCache = JSON.parse(fs.readFileSync(CACHE_ACTRESS_FILE, 'utf-8')); } catch (e) { }
+    }
+    const mergedCache = { ...existingArtCache };
+    actressProfileMap.forEach((v, k) => { mergedCache[k] = v; });
+    fs.writeFileSync(CACHE_ACTRESS_FILE, JSON.stringify(mergedCache, null, 2));
+    console.log(`Saved ${actressProfileMap.size} actress profiles to cache.`);
+
+    // --- PHASE 3: Final Assembly ---
     const allProducts: DmmItem[] = [];
     const actressAggregation = new Map<string, LocalActress>();
 
-    console.log(`Processing ${records.length} product rows...`);
-
+    console.log(`Processing unified product list and aggregating actresses...`);
     let currentRow = 0;
-    for (const record of records as any[]) {
+    for (const [cid, record] of productRowsByCid.entries()) {
         currentRow++;
-        const cid = record['商品ID(CID)'];
         const title = record['タイトル'];
         const dateRaw = record['発売日'];
         const actNamesRaw = record['出演女優名'];
@@ -334,26 +456,23 @@ async function main() {
         const affUrl = record['商品URL'];
         const imgUrl = record['画像URL'];
 
-        if (!cid || !title) continue;
-
-        if (!title.includes('【VR】') && !cid.startsWith('vr')) {
-            if (!title.includes('【VR】')) continue;
-        }
-
         const date = dateRaw ? dateRaw.split(' ')[0].replace(/\//g, '-') : '';
         let scoreVal = scoreRaw ? parseFloat(scoreRaw) : 0;
         let countVal = countRaw ? parseInt(countRaw) : 0;
 
-        // Merge API Metadata (Sample URL & Genre)
+        // Merge API Metadata
         const apiData = metadataMap.get(cid);
 
-        // Fallback to API data if CSV is 0 (source is empty)
+        // Fallback to API data if CSV is 0
         if (scoreVal === 0 && countVal === 0 && apiData?.review) {
             scoreVal = apiData.review.average ? parseFloat(apiData.review.average) : 0;
             countVal = apiData.review.count || 0;
         }
 
-        // Check for Omnibus/Compilation Keywords in Title (Primary safeguard)
+        // Safeguard: Content IDs that are missing from API might be old or deleted
+        // but we still include them if they are in the CSV.
+
+        // Check for Omnibus/Compilation Keywords in Title
         const isOmnibusByTitle = OMNIBUS_KEYWORDS.some(k => title.includes(k));
         if (isOmnibusByTitle) continue;
 
@@ -373,15 +492,15 @@ async function main() {
             imageURL: {
                 list: imgUrl ? imgUrl.replace('pl.jpg', 'pt.jpg') : '',
                 small: imgUrl ? imgUrl.replace('pl.jpg', 'ps.jpg') : '',
-                large: imgUrl
+                large: imgUrl.replace('pt.jpg', 'pl.jpg').replace('ps.jpg', 'pl.jpg') // normalization
             },
             sampleMovieURL: apiData?.sampleMovieURL,
             iteminfo: {
                 ...(apiData?.iteminfo || {}),
-                actress: [] // Will be populated below
+                actress: []
             },
             service_code: 'digital',
-            floor_code: 'videoa',
+            floor_code: apiData?.floor_code || 'videoa',
             review_count: countVal,
             review_average: scoreVal,
         };
@@ -389,16 +508,8 @@ async function main() {
         allProducts.push(product);
 
         if (actNamesRaw) {
-            // Filter out purely numeric strings (IDs) and trim
-            // ALSO filter out strings that are too long or contain title markers to avoid leaks
             const rawNames = (actNamesRaw || '').split(/,|、/).map((s: string) => s.trim())
-                .filter((s: string) => {
-                    return s &&
-                        isNaN(Number(s)) &&
-                        s.length < 40 &&
-                        !s.includes('【VR】') &&
-                        !s.includes('http');
-                });
+                .filter((s: string) => s && isNaN(Number(s)) && s.length < 40 && !s.includes('【VR】') && !s.includes('http'));
 
             for (const rName of rawNames) {
                 const normalizedName = rName.replace(/（.*?）/g, '').trim();
@@ -449,8 +560,6 @@ async function main() {
                     entry.videos.push(product);
                     entry.videoCount++;
                 }
-
-                if (currentRow < 5) console.log(`DEBUG: Row ${currentRow} actNamesRaw: "${actNamesRaw}" -> rawNames: ${JSON.stringify(rawNames)}`);
 
                 // ALSO add to product iteminfo
                 if (!product.iteminfo) product.iteminfo = { actress: [] };
