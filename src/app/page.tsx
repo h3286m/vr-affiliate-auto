@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import VideoCard from '@/components/VideoCard';
 import products from '@/data/products.json';
 import { DmmItem } from '@/types/dmm';
@@ -58,10 +59,8 @@ export default function Home() {
 
               {featuredPickup && (
                 <div className="flex-1 flex flex-col justify-center">
-                  <a
-                    href={featuredPickup.affiliateURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href={`/product/${featuredPickup.content_id}`}
                     className="group flex flex-row items-center gap-4 hover:bg-slate-800/30 p-2 rounded-lg transition-colors"
                   >
                     {/* Actress Icon (Circle) */}
@@ -100,7 +99,7 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

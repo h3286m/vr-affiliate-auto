@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { DmmItem } from '@/types/dmm';
 
 interface NewsSectionProps {
@@ -19,7 +20,7 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ items }) => {
                 ) : (
                     items.map((item) => (
                         <div key={item.content_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors p-2 rounded">
-                            <a href={item.affiliateURL} target="_blank" rel="noopener noreferrer" className="block flex-1 group">
+                            <Link href={`/product/${item.content_id}`} className="block flex-1 group">
                                 <div className="flex items-baseline">
                                     <span className="text-xs font-mono text-blue-400 mr-3 shrink-0">{new Date(item.date).toLocaleDateString('ja-JP')}</span>
                                     <span className="text-sm text-slate-300 group-hover:text-white transition-colors line-clamp-1 flex-1">{item.title}</span>
@@ -29,7 +30,7 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ items }) => {
                                         </span>
                                     )}
                                 </div>
-                            </a>
+                            </Link>
                         </div>
                     ))
                 )}
