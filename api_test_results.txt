@@ -1,0 +1,22 @@
+[dotenv@17.2.3] injecting env (3) from .env.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+--- Testing CID: vrkm01780 ---
+[FOUND] Site: FANZA, Floor: videoa, CID: vrkm01780
+  Title: 【VR】天井特化アングルVR ～大好きな彼女と普通のセックス～ 似鳥日菜
+  Sample: NONE
+  Review: 0 (0)
+[NOT FOUND] Site: FANZA, Floor: videoc, CID: vrkm01780
+[NOT FOUND] Site: DMM.co.jp, Floor: videoa, CID: vrkm01780
+
+--- Testing CID: avvr00214 ---
+[NOT FOUND] Site: FANZA, Floor: videoa, CID: avvr00214
+[NOT FOUND] Site: FANZA, Floor: videoc, CID: avvr00214
+[NOT FOUND] Site: DMM.co.jp, Floor: videoa, CID: avvr00214
+
+--- Testing CID: vrkm01746 ---
+[FOUND] Site: FANZA, Floor: videoa, CID: vrkm01746
+  Title: 【VR】アヘ顔面特化！！【バブみxアヘ顔】癒しの母性とバブみアヘ顔と… わか菜ほの
+  Sample: NONE
+  Review: 0 (0)
+[NOT FOUND] Site: FANZA, Floor: videoc, CID: vrkm01746
+[NOT FOUND] Site: DMM.co.jp, Floor: videoa, CID: vrkm01746

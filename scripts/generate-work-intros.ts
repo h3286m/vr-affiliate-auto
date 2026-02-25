@@ -77,7 +77,8 @@ function processCsv() {
         skip_empty_lines: true,
         relax_column_count: true,
         relax_quotes: true,
-        escape: '"'
+        escape: '"',
+        bom: true
     });
 
     if (records.length === 0) return;

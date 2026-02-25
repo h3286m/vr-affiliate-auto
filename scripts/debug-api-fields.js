@@ -1,5 +1,5 @@
-
 const axios = require('axios');
+const fs = require('fs');
 require('dotenv').config({ path: '.env.local' });
 
 async function probe() {
@@ -12,8 +12,8 @@ async function probe() {
     try {
         const res = await axios.get(url);
         const item = res.data.result.items[0];
-        console.log('--- API Item Fields ---');
-        console.log(JSON.stringify(item, null, 2));
+        fs.writeFileSync('api_debug_dump.json', JSON.stringify(item, null, 2), 'utf-8');
+        console.log('Results written to api_debug_dump.json');
     } catch (e) {
         console.error('API Error:', e.message);
     }

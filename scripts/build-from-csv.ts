@@ -257,7 +257,8 @@ async function main() {
         const actContent = fs.readFileSync(ACTRESS_CSV_PATH, 'utf-8');
         const actRecords = parse(actContent, {
             columns: true,
-            skip_empty_lines: true
+            skip_empty_lines: true,
+            bom: true
         });
 
         for (const row of actRecords as any[]) {
@@ -287,7 +288,8 @@ async function main() {
         const enrichContent = fs.readFileSync(ENRICHMENT_CSV_PATH, 'utf-8');
         const enrichRecords = parse(enrichContent, {
             columns: true,
-            skip_empty_lines: true
+            skip_empty_lines: true,
+            bom: true
         });
         for (const row of enrichRecords as any[]) {
             if (row.name) {
@@ -327,7 +329,8 @@ async function main() {
     const records = parse(prodContent, {
         columns: true,
         skip_empty_lines: true,
-        relax_column_count: true
+        relax_column_count: true,
+        bom: true
     });
 
     const productRowsByCid = new Map<string, any>();
@@ -455,6 +458,7 @@ async function main() {
         const countRaw = record['レビュー数'];
         const affUrl = record['商品URL'];
         const imgUrl = record['画像URL'];
+        const description = record['紹介文'] || '';
 
         const date = dateRaw ? dateRaw.split(' ')[0].replace(/\//g, '-') : '';
         let scoreVal = scoreRaw ? parseFloat(scoreRaw) : 0;
@@ -494,6 +498,7 @@ async function main() {
                 small: imgUrl ? imgUrl.replace('pl.jpg', 'ps.jpg') : '',
                 large: imgUrl.replace('pt.jpg', 'pl.jpg').replace('ps.jpg', 'pl.jpg') // normalization
             },
+            description: description,
             sampleMovieURL: apiData?.sampleMovieURL,
             iteminfo: {
                 ...(apiData?.iteminfo || {}),

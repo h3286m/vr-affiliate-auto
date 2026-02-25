@@ -1,0 +1,43 @@
+[dotenv@17.2.3] injecting env (3) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+--- Fetching for ID: 1006229 | Keyword: 'VR' ---
+  Page 1: Found 24 items. (Total: 24)
+Strategy 1 (keyword='VR') Total: 24
+
+--- Item Fields Check ---
+- service_code: digital
+- service_name: 動画
+- floor_code: videoa
+- floor_name: ビデオ
+- category_name: ビデオ (動画)
+- content_id: sivr00256
+- product_id: sivr00256
+- title: 【VR】葵つかさVR史上最も生々しいSEX！！ 主観（手持ち）＆客観（置きカメ）のWアングルにこだわ...
+- volume: 82
+- review: (type: object)
+- URL: https://video.dmm.co.jp/av/content/?id=sivr00256
+- affiliateURL: https://al.fanza.co.jp/?lurl=https%3A%2F%2Fvideo.d...
+- imageURL: (type: object)
+- sampleImageURL: (type: object)
+- prices: (type: object)
+- date: 2023-05-06 10:00:19
+- iteminfo: (type: object)
+
+--- iteminfo Fields ---
+- iteminfo.genre: (type: object)
+- iteminfo.series: (type: object)
+- iteminfo.maker: (type: object)
+- iteminfo.actress: (type: object)
+- iteminfo.director: (type: object)
+- iteminfo.label: (type: object)
+-------------------------
+
+........................
+
+--- Fetching for ID: 1006229 | Keyword: '' ---
+  Page 1: Found 100 items. (Total: 100)
+  Page 2: Found 52 items. (Total: 152)
+Strategy 2 (No Keyword) Total: 152
+Strategy 2 Local Filtered Count: 24
+
+Items missed by API Keyword 'VR': 0
