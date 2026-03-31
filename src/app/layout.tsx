@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google"; // Assuming these exist, otherwise use Inter
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ero-trick.tokyo"),
   title: "魁！E子、エロい子、ドエロい子",
   description: "最高のVR体験をあなたに。厳選されたVR動画を紹介するアフィリエイトサイトです。",
 };
@@ -32,6 +34,7 @@ export default function RootLayout({
         <main className="min-h-screen pb-20">
           {children}
         </main>
+        {process.env.NEXT_PUBLIC_GA_ID && <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />}
       </body>
     </html>
   );

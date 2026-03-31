@@ -8,11 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "fetch-data": "tsx scripts/build-from-csv.ts",
-    "update-new": "tsx scripts/update-recent.ts"
+    "update-new": "tsx scripts/update-recent.ts",
+    "postbuild": "next-sitemap"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "next-sitemap": "^4.2.3",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
