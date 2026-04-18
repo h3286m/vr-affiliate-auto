@@ -30,7 +30,7 @@ function ActressCard({ actress }: ActressCardProps) {
           <img
             src={actress.coverImage}
             alt={actress.name}
-            className="w-full h-full object-cover object-top group-hover:scale-108 transition-transform duration-700"
+            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
             loading="lazy"
             onError={() => setImgError(true)}
           />

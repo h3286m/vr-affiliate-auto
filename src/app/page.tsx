@@ -80,10 +80,11 @@ function prepareData() {
   const actressMap = new Map<string, PickupActress>();
   unique.forEach(product => {
     product.iteminfo?.actress?.forEach(actress => {
-      if (!actress.id || !actress.name) return;
-      if (!actressMap.has(actress.id)) {
-        actressMap.set(actress.id, {
-          id: actress.id,
+      const aid = String(actress.id);
+      if (!aid || !actress.name) return;
+      if (!actressMap.has(aid)) {
+        actressMap.set(aid, {
+          id: aid,
           name: actress.name,
           ruby: actress.ruby,
           count: 0,
@@ -91,7 +92,7 @@ function prepareData() {
           bestRating: 0,
         });
       }
-      const existing = actressMap.get(actress.id)!;
+      const existing = actressMap.get(aid)!;
       existing.count += 1;
       if ((product.review_average || 0) > existing.bestRating) {
         existing.bestRating = product.review_average || 0;
